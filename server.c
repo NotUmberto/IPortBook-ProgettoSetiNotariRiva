@@ -57,4 +57,31 @@ int main() {
   pthread_join(notifiche, NULL);
 
   // inizio collegamento tcp...
+  
+  int sockfd=socket(AF_INET,SOCK_STREAM,0);
+  struct sockaddr_in my_sockaddr;
+  
+  my_sockaddr.sin_family=AF_INET;
+  my_sockaddr.sin_port=htons(4242);
+  my_sockaddr.sin_addr=htonl(INADDR_ANY);
+
+  bind(sockfd, (struct sockaddr*)&my_sockaddr,sizeof(sockaddr));
+  listen(sockfd,0);
+  //ogni connessione dovrebbe essere gestita con un suo thead. bisognerebbe che ci fosse sempre un thread pronto ad accettare nuove connessioni
+  
+  //il programma principale dovrebbe ascoltare. quando arriva una connessione dovrebbe creare un thread che aspetta dei dati(e in generale gestisce la connessione. il thread avrà anche bisogno di farsi una copia tutta sua del fd generato da connect), poi il programma principale si rimette nuovamente in ascolto.
+
+  int active_fd=0;
+  socklen_t sizeofcaller;
+  struct sockaddr_in caller;
+  while(1)
+  {
+  active_fd=accept(sockfd, (struct sockaddr*)&caller, &sizeofcaller);//op bloccante. otteniamo anche le info del chiamante che potremmo mettere in delle struct appropriate in user
+
+
+  
+  pthread_t client_handler;
+
+  }
+  
 }
