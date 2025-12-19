@@ -12,4 +12,6 @@ struct user
     char* password;// numero compreso tra 0 e 65535
 };
 
-TCP_message_handler(int sockfd);
+void TCP_message_handler(int sockfd);
+
+void *ListenNotify(void *port);

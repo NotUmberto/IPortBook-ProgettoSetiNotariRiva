@@ -18,7 +18,7 @@ int main() {
     //stia eseguendo il server. 
     char* server_address="localhost";//molto provvisiorio
     struct in_addr address;
-    inet_aton(server_address, &address);
+    inet_aton("localhost", &address);
 
     dst.sin_family=AF_INET;
     dst.sin_addr=address;
@@ -32,21 +32,21 @@ int main() {
     }
     printf("Connesso.\ninviare un messaggio al server...\n");
 
-    //qui penso sarebbe da iniziare il thread per le notifiche UDP
+    int udp_port=5555;
+    pthread_t udp_thread;
+    pthread_create(&udp_thread,NULL,ListenNotify,&udp_port);
 
     int buf1_size=maxTCPMessageLength+1;
     char* buf1=malloc(buf1_size*sizeof(char));
     while(1)
     {
-        fgets(buf1, buf1_size, stdin);
-        //qui in mezzo non sarebbe da usare l'handler?
-        TCP_message_handler(sockfd);
-
+        fgets(buf1, buf1_size, stdin); //mandiamo il segnale
         write(sockfd, buf1, buf1_size);
 
-        //read();
-        
+        TCP_message_handler(sockfd); //gestisce cosa riceve   
     }
+
+    pthread_join(udp_thread,NULL);
 
     return 0;
 }

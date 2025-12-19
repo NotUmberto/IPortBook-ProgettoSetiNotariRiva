@@ -10,10 +10,10 @@
 #include <stdbool.h>
 #include "server_code.h"
 
+extern volatile struct registered_users server;
 
 int main() {   
     //creiamo la struct degli utenti registrati
-    volatile struct registered_users server; 
     server.number=0;
 
     //creazione socket e bind cosi mettiamo il server ad ascoltare possibili nuove connessioni
@@ -26,25 +26,27 @@ int main() {
     my_sockaddr.sin_addr.s_addr=htonl(INADDR_ANY);
 
     int b=bind(sockfd, (struct sockaddr*)&my_sockaddr,sizeof(struct sockaddr));
-    if (b!=0) {printf("errore listen\n"); return 1;} 
+    if (b!=0) {printf("errore bind\n"); return 1;} 
 
     int l=listen(sockfd,0);
     if (l!=0) {printf("errore listen\n"); return 1;}
 
     //gestione delle connessioni. ogni connessione sarà gestita da un thread a parte.
-    int active_fd=0;
-    socklen_t sizeofcaller;
-    struct sockaddr caller;
+    struct sockaddr_in caller;    
+    socklen_t sizeofcaller=sizeof(caller);
+    printf("sto per iniziare il while\n");
+    while(1) {
+        int active_fd=accept(sockfd, (struct sockaddr*)&caller, &sizeofcaller);//op bloccante.
+        printf("ho accettato la connessione\n");
+        struct package user_info;
+        user_info.activefd=active_fd;
+        user_info.caller=caller;
+        user_info.sizecaller=sizeofcaller;
+        user_info.pos=server.number;
 
-    while(1)
-    {
-        active_fd=accept(sockfd, &caller, &sizeofcaller);//op bloccante.
-        //otteniamo anche le info del chiamante che potremmo mettere nella struct del cliente
-        
-        //creiamo anche il thread per le notifiche UDP?
-        //creo un nuovo thread per gestire il cliente. al nuovo thread bisognerà passare
-        //active_fd e forse anche caller
-
+        server.number++;
+        pthread_t tcp_thread;
+        pthread_create(&tcp_thread,NULL,TCP_message_handler,&user_info);
     }
     
 
