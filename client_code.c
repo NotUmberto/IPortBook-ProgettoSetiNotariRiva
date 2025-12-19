@@ -9,8 +9,17 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-TCP_message_handler(int sockfd)
-{
+void WELCO_handler() { 
+    printf("Benvenuto! la connessione ha avuto successo\n");
+    return;
+}
+
+void GOBYE_handler() { 
+    printf("Il server ha chiuso la connessione\n");
+    return;
+}
+
+TCP_message_handler(int sockfd) {
     int buf1_size=6;
     char* buf1=malloc(buf1_size*sizeof(char));
     while(1)
