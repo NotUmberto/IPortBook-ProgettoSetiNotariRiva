@@ -7,22 +7,25 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 //lista di tutti i messaggi tcp possibili
 //REGIS, WELCO, GOBYE, CONNE, HELLO,FRIE?, FRIE>, FRIE<, MESS?, MESS>, MESS<, FLOO>, FLOO?, 
 // LIST?, RLIST, LINUM,CONSU, SSEM>,OOLF>, EIRF>, OKIRF, NOKRF, ACKRF, FRIEN, NOFRI, NOCON
-
-void REGIS_handler();
-
-void CONNE_handler();
-void FRIEND_REQUEST_handler();
+void REGIS_handler() { 
+    return;
+}
+void CONNE_handler() { 
+    return;
+}
+void FRIEND_REQUEST_handler() { 
+    return;
+}
 //ecc ecc
 
 //gestisce il cliente a seconda di quello che ha mandato. gli args dovranno includere almeno il sockfd per comunicare in tcp col cliente. probabilmente andranno anche inclusi i campi del chiamante compilati da accept() cosi da usarli in REGIS_handler() direi.
 void TCP_message_handler(void* args)
 {
-    
-
     int active_fd=*((int*)args);
     int buf1_size=6;
     char* buf1=malloc(buf1_size*sizeof(char));
