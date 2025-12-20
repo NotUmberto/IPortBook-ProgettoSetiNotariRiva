@@ -72,30 +72,33 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     strcpy(newclient->UDP_port,infoport);
 
     //---------lettura password--------------
-    char infopass[8];
+    char infopass[9];
     readline(fd, infopass);
-    printf("password ricevuta: %s\n", infopass);
-
     int pass=atoi(infopass);
+
+    printf("password ricevuta: %d\n", pass);
+
     if (pass<0 || pass>65535) { 
         printf("password errata\n");
+        write(fd, "GOBYE+++", 8); //invio il messaggio di errore
         close(fd);
         return;
     }
-    printf("password corretta\n");
     newclient->password=pass; //per la password
 
     //---------inserimento connection--------------
-    newclient->isConnected=false;
+    newclient->isConnected=true;
 
     //---------aggiunta alla struct degli utenti registrati--------------
     server.array[p]=newclient;
     pthread_mutex_unlock(&lock);
     printf("cliente aggiunto alla struct con successo!\n");
 
-    printf("stampo i dati del nuovo cliente\n");
-    printf("id %s, udp %s, pass %d\n",server.array[p]->id,server.array[p]->UDP_port,server.array[p]->password);
+    //printf("stampo i dati del nuovo cliente\n");
+    //printf("id %s, udp %s, pass %d\n",server.array[p]->id,server.array[p]->UDP_port,server.array[p]->password);
     server.number++;
+
+    write(fd, "WELCO+++", 8); //invio il messaggio di benvenuto
     return;
 }
 
@@ -105,18 +108,27 @@ void CONNE_handler(int sock, int p) {
     char infoid[9];
     readline(sock, infoid);
 
-    p=0;
+    p=-1;
     for (unsigned i=0;i<server.number;i++) { 
         //cerca il cliente
         if (strcmp(server.array[i]->id,infoid)==0) { 
-            printf("l'ho trovato\n");
+            //printf("l'ho trovato\n");
             p=i;
             break;
         }
-    }
+    }  
 
-    printf("p e' in posizione %d\n",p);
-    printf("id da confrontare %s\n", server.array[p]->id);    
+    //caso in cui e' stato fatto il CONNE senza REGIS
+    if (p==-1) { 
+        printf("id non trovato\n");
+
+        printf("invio GOBYE+++\n");
+        char goodbye_msg[]="GOBYE+++";
+        write(sock, goodbye_msg, strlen(goodbye_msg));
+
+        close(sock);
+        return;
+    }
 
     printf("id ricevuto: %s\n", infoid);
 
@@ -161,7 +173,14 @@ void CONNE_handler(int sock, int p) {
 
     return;
 }
+
 void FRIEND_REQUEST_handler() { 
+    printf("siamo al FRIEND_REQUEST\n");
+    return;
+}
+
+void MESSAGE_HANDLER() { 
+    printf("siamo al MESSAGE_HANDLER\n");
     return;
 }
 //ecc ecc
@@ -172,10 +191,13 @@ void* TCP_message_handler(void* args) {
 
     int buf1_size=6;
     char* buf1=malloc(buf1_size*sizeof(char));
-    while(1)
-    {
-        int sizeread=read(info.activefd, buf1, buf1_size-1);
+    while(1) {
+        int val=read(info.activefd, buf1, buf1_size-1);
+        printf("valore di read: %d\n", val);
+        printf("ho appena letto il comando\n");
         buf1[buf1_size-1]='\0';
+        printf("strlen=%ld\n", strlen(buf1));
+        printf("comando ricevuto: %s\n", buf1);
 
         if(strcmp(buf1, "REGIS")==0)
         {
@@ -183,59 +205,52 @@ void* TCP_message_handler(void* args) {
             read(info.activefd,&s,1);
             REGIS_handler(info.activefd,info.pos);
         }
-
-        if(strcmp(buf1, "CONNE")==0 )
+        else if(strcmp(buf1, "CONNE")==0 )
         {
             char s;
             read(info.activefd,&s,1);
             CONNE_handler(info.activefd,info.pos);
         }
-
-        if(server.array[info.pos]->isConnected)
+        else if(strcmp(buf1, "FRIE?")==0 )
         {
-            if(strcmp(buf1, "FRIE?")==0 )
-            {
-                
-            }
-            else if(strcmp(buf1, "MESS?")==0)
-            {
-
-            }
-            else if(strcmp(buf1, "FLOO?")==0)
-            {
-                
-            }
-            else if(strcmp(buf1, "LIST?")==0)
-            {
-                
-            }
-            else if(strcmp(buf1, "CONSU")==0)
-            {
-                
-            }
-            else if(strcmp(buf1, "OKIRF")==0)
-            {
-                
-            }
-            else if(strcmp(buf1, "NOKRF")==0)
-            {
-                
-            }
-            else if(strcmp(buf1, "IQUIT")==0)
-            {
-
-            }
-            else 
-            {
-                //manda un GOBYE, dealloca tutta la memoria usata dal thread, chiude la connessione e termina il thread.
-            }
+            FRIEND_REQUEST_handler();
         }
-        else
+        else if(strcmp(buf1, "MESS?")==0)
         {
-            //manda un GOBYE, dealloca tutta la memoria usata dal thread, chiude la connessione e termina il thread.
+            MESSAGE_HANDLER();
         }
-        
-        
+        else if(strcmp(buf1, "FLOO?")==0)
+        {
+            
+        }
+        else if(strcmp(buf1, "LIST?")==0)
+        {
+            
+        }
+        else if(strcmp(buf1, "CONSU")==0)
+        {
+            
+        }
+        else if(strcmp(buf1, "OKIRF")==0)
+        {
+            
+        }
+        else if(strcmp(buf1, "NOKRF")==0)
+        {
+            
+        }
+        else if(strcmp(buf1, "IQUIT")==0)
+        {
+        }
+        else 
+        {
+            printf("comando non riconosciuto\n");
+            char goodbye_msg[]="GOBYE+++";
+            write(info.activefd, goodbye_msg, strlen(goodbye_msg));
+            close(info.activefd);
+            return NULL;
+        }
     }
+    //qua e' finito il while (non dovrebbe mai finire)
     return NULL;
 }

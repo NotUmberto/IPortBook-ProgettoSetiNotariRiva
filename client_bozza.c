@@ -36,7 +36,7 @@ int main() {
     while(1)
     {
         fgets(buf1, buf1_size, stdin); //mandiamo il segnale
-        write(sockfd, buf1, buf1_size);
+        write(sockfd, buf1, strlen(buf1)); //SI MANDA QUANTO LETTO NON SEMPRE LA STESSA GRANDEZZA
 
         TCP_message_handler(sockfd); //gestisce cosa riceve   
     }
