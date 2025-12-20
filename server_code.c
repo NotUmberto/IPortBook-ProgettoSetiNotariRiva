@@ -49,14 +49,29 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
         return;
     }
 
+    pthread_mutex_lock(&lock);
+
+    Client newclient;
+    newclient=malloc(sizeof(struct client));
+
+    //---------lettura id--------------
     char infoid[9];
     readline(fd, infoid);
     printf("id ricevuto: %s\n", infoid);
 
+    //printf("lunghezza di infoid -%s- %ld\n",infoid,strlen(infoid));
+    newclient->id=malloc(strlen(infoid)+1); 
+    strcpy(newclient->id,infoid);
+
+    //---------lettura porta UDP--------------
     char infoport[5];
     readline(fd, infoport);
     printf("port ricevuta: %s\n", infoport);
 
+    newclient->UDP_port=malloc(strlen(infoport)+1); 
+    strcpy(newclient->UDP_port,infoport);
+
+    //---------lettura password--------------
     char infopass[8];
     readline(fd, infopass);
     printf("password ricevuta: %s\n", infopass);
@@ -68,28 +83,18 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
         return;
     }
     printf("password corretta\n");
-
-    //creiamo il nuovo cliente 
-    
-    pthread_mutex_lock(&lock);
-
-    Client newclient;
-    newclient=malloc(sizeof(struct client));
-
-    newclient->id=malloc(strlen(infoid)+1); //per l'id
-    strcpy(newclient->id,infoid);
-
-    newclient->UDP_port=malloc(strlen(infoport)+1); //per la porta UDP
-    strcpy(newclient->UDP_port,infoport);
-
     newclient->password=pass; //per la password
 
+    //---------inserimento connection--------------
     newclient->isConnected=false;
 
-    //lo aggiungiamo alla struct
+    //---------aggiunta alla struct degli utenti registrati--------------
     server.array[p]=newclient;
     pthread_mutex_unlock(&lock);
     printf("cliente aggiunto alla struct con successo!\n");
+
+    printf("stampo i dati del nuovo cliente\n");
+    printf("id %s, udp %s, pass %d\n",server.array[p]->id,server.array[p]->UDP_port,server.array[p]->password);
     server.number++;
     return;
 }

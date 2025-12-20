@@ -3,12 +3,14 @@
 
 #define MAXCLIENTS 100
 
-struct package { 
+typedef struct package { 
     struct sockaddr_in caller;
     socklen_t sizecaller;
     int activefd;
     int pos;
-};
+}package;
+typedef struct package* Package; //per i puntatori
+
 
 typedef struct client {
     bool isConnected;
