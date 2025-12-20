@@ -11,19 +11,14 @@
 #include "client_code.h"
 
 int main() {
-    int sockfd=socket(AF_INET, SOCK_STREAM, 0);   
     struct sockaddr_in dst;
-    
-    //penso che andrebbe chiesto ogni volta cosi potremmo collegarci a qualunque macchina
-    //stia eseguendo il server. 
-    char* server_address="localhost";//molto provvisiorio
-    struct in_addr address;
-    inet_aton("localhost", &address);
+    int sockfd=socket(AF_INET, SOCK_STREAM, 0);   
+
+    inet_aton("localhost", &dst.sin_addr);
 
     dst.sin_family=AF_INET;
-    dst.sin_addr=address;
     dst.sin_port=htons(4242);//molto provvisorio
-    int r=connect(sockfd, (struct sockaddr*)&address, sizeof(struct sockaddr_in));
+    int r=connect(sockfd, (struct sockaddr*)&dst, sizeof(struct sockaddr_in));
     if(r!=0)
     {
         printf("Problema di connessione\n");
