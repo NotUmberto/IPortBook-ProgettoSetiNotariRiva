@@ -192,23 +192,24 @@ void* TCP_message_handler(void* args) {
     int buf1_size=6;
     char* buf1=malloc(buf1_size*sizeof(char));
     while(1) {
-        int val=read(info.activefd, buf1, buf1_size-1);
+        printf("sto per leggere il comando\n");
+        int val=read(info.activefd, buf1, buf1_size);
         printf("valore di read: %d\n", val);
         printf("ho appena letto il comando\n");
-        buf1[buf1_size-1]='\0';
+        buf1[val-1]='\0';
         printf("strlen=%ld\n", strlen(buf1));
         printf("comando ricevuto: %s\n", buf1);
 
         if(strcmp(buf1, "REGIS")==0)
         {
-            char s;
-            read(info.activefd,&s,1);
+            //char s;
+            //read(info.activefd,&s,1);
             REGIS_handler(info.activefd,info.pos);
         }
         else if(strcmp(buf1, "CONNE")==0 )
         {
-            char s;
-            read(info.activefd,&s,1);
+            //char s;
+            //read(info.activefd,&s,1);
             CONNE_handler(info.activefd,info.pos);
         }
         else if(strcmp(buf1, "FRIE?")==0 )

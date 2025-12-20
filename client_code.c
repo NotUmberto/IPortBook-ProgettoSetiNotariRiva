@@ -32,6 +32,7 @@ void TCP_message_handler(int sockfd)
 
     while(1)
     {
+        printf("sto per leggere il messaggio\n");
         int sizeread=read(sockfd, buf1, buf1_size-1);
         buf1[buf1_size-1]='\0';
         printf("messaggio ricevuto: %s\n", buf1);
@@ -41,10 +42,11 @@ void TCP_message_handler(int sockfd)
           close(sockfd);
           return;
         }*/
-        
+                printf("puoi inviare un messaggio\n");
         if(strcmp(buf1, "WELCO+++")==0)
         {
             WELCO_handler();
+            return;
         }
         else if(strcmp(buf1, "GOBYE+++")==0)
         {
@@ -114,8 +116,8 @@ void TCP_message_handler(int sockfd)
         else 
         {
             printf("messaggio sconosciuto\n");
-            return;
             close(sockfd);
+            return;
         }
         
         
