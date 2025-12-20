@@ -45,7 +45,7 @@ int main() {
         user_info.sizecaller=sizeofcaller;
         user_info.pos=server.number;
 
-        server.number++;
+
         pthread_t tcp_thread;
         pthread_create(&tcp_thread,NULL,TCP_message_handler,&user_info);
     }

@@ -69,7 +69,7 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     }
     printf("password corretta\n");
 
-    //creiamo il nuovo cliente
+    //creiamo il nuovo cliente 
     
     pthread_mutex_lock(&lock);
 
@@ -90,21 +90,34 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     server.array[p]=newclient;
     pthread_mutex_unlock(&lock);
     printf("cliente aggiunto alla struct con successo!\n");
+    server.number++;
     return;
 }
 
 void CONNE_handler(int sock, int p) { 
-    printf("siamo al conne\n");
+    printf("siamo al CONNE\n");
     //CONNE ID PASS+++
     char infoid[9];
     readline(sock, infoid);
-    printf("id ricevuto: %s\n", infoid);
-    if(strcmp(infoid,server.array[p]->id)==0)
-    {
-        printf("id corretto\n");
+
+    p=0;
+    for (unsigned i=0;i<server.number;i++) { 
+        //cerca il cliente
+        if (strcmp(server.array[i]->id,infoid)==0) { 
+            printf("l'ho trovato\n");
+            p=i;
+            break;
+        }
     }
-    else
-    {
+
+    printf("p e' in posizione %d\n",p);
+    printf("id da confrontare %s\n", server.array[p]->id);    
+
+    printf("id ricevuto: %s\n", infoid);
+
+    if(strcmp(infoid,server.array[p]->id)==0) {
+        printf("id corretto\n");
+    } else {
         printf("id errato\n");
 
         printf("invio GOBYE+++\n");
@@ -115,7 +128,8 @@ void CONNE_handler(int sock, int p) {
         return;
     }
 
-    char infopass[8];
+    printf("sto per leggere la password\n");
+    char infopass[6];
     readline(sock, infopass);
     printf("password ricevuta: %s\n", infopass);
     if(atoi(infopass)==server.array[p]->password)
@@ -160,12 +174,16 @@ void* TCP_message_handler(void* args) {
 
         if(strcmp(buf1, "REGIS")==0)
         {
+            char s;
+            read(info.activefd,&s,1);
             REGIS_handler(info.activefd,info.pos);
         }
 
         if(strcmp(buf1, "CONNE")==0 )
         {
-                
+            char s;
+            read(info.activefd,&s,1);
+            CONNE_handler(info.activefd,info.pos);
         }
 
         if(server.array[info.pos]->isConnected)
