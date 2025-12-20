@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 
 #define MAXCLIENTS 100
+#define PASSWORD 12345
 
 struct package { 
     struct sockaddr_in caller;
@@ -14,7 +15,7 @@ typedef struct client {
     bool isConnected;
     char* id;//sarà un array di 8 char
     char* UDP_port;//<9999
-    char* password; //tra 0 e 65535
+    int password; //tra 0 e 65535
 } client;
 typedef struct client* Client; //per i puntatori
 
@@ -25,8 +26,10 @@ struct registered_users { //una struct per i clients
 
 extern volatile struct registered_users server;
 
+int readline(int sock,char *b);
+
 void* TCP_message_handler(void*);
-void REGIS_handler();
+void REGIS_handler(int fd,int p);
 void CONNE_handler();
 void FRIEND_REQUEST_handler();
 //ecc ecc

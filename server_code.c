@@ -12,13 +12,81 @@
 
 volatile struct registered_users server;
 
+int readline(int sock,char *b) {//se troviamo uno spazio abbiamo trovato una parola
+    //ATTENZIONE A NON SUPERARE LA LUNGHEZZA DI B
+    char *bpos=b;
+    char c;
+    int r=read(sock,&c,sizeof(char));
+
+    if (c!=' '){ //se il primo char è uno spazio non lo mettiamo nel buffer
+        *bpos=c;
+    }
+
+    while(r==1 && *bpos!=' '){
+        ++bpos;
+        read(sock,bpos,sizeof(char));}
+    if(r==1){
+        ++bpos;
+        *bpos='\0';
+        return 0;
+    } else {
+        return 1;
+    }
+
+}
+
 //lista di tutti i messaggi tcp possibili
 //REGIS, WELCO, GOBYE, CONNE, HELLO,FRIE?, FRIE>, FRIE<, MESS?, MESS>, MESS<, FLOO>, FLOO?, 
 // LIST?, RLIST, LINUM,CONSU, SSEM>,OOLF>, EIRF>, OKIRF, NOKRF, ACKRF, FRIEN, NOFRI, NOCON
-void REGIS_handler() { 
-    printf("siamo al regis\n");
+void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port_password
+    printf("siamo al REGIS\n");
+
+    if (p>MAXCLIENTS) { 
+        printf("il server e' pieno!\n");
+        close(fd);
+        return 1;
+    }
+
+    char infoid[9];
+    readline(fd, infoid);
+    printf("id ricevuto: %s\n", infoid);
+
+    char infoport[5];
+    readline(fd, infoport);
+    printf("port ricevuta: %s\n", infoport);
+
+    char infopass[6];
+    readline(fd, infopass);
+    printf("password ricevuta: %s\n", infopass);
+
+    int pass=atoi(infopass);
+    if (pass<0 || pass>65535) { 
+        printf("password errata\n");
+        close(fd);
+        return;
+    }
+    printf("password corretta\n");
+
+    //creiamo il nuovo cliente
+    Client newclient;
+    newclient=malloc(sizeof(struct client));
+
+    newclient->id=malloc(strlen(infoid)+1); //per l'id
+    strcpy(newclient->id,infoid);
+
+    newclient->UDP_port=malloc(strlen(infoport)+1); //per la porta UDP
+    strcpy(newclient->UDP_port,infoport);
+
+    newclient->password=pass; //per la password
+
+    newclient->isConnected=false;
+
+    //lo aggiungiamo alla struct
+    server.array[p]=newclient;
+    printf("cliente aggiunto alla struct con successo!\n");
     return;
 }
+
 void CONNE_handler() { 
     printf("siamo al conne\n");
     //server.array[].isconnected=true;
@@ -42,7 +110,7 @@ void* TCP_message_handler(void* args) {
 
         if(strcmp(buf1, "REGIS")==0)
         {
-            REGIS_handler();
+            REGIS_handler(info.activefd,info.pos);
         }
 
         if(strcmp(buf1, "CONNE")==0 )
