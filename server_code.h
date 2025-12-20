@@ -2,7 +2,6 @@
 #include <sys/socket.h>
 
 #define MAXCLIENTS 100
-#define PASSWORD 12345
 
 struct package { 
     struct sockaddr_in caller;
@@ -26,10 +25,11 @@ struct registered_users { //una struct per i clients
 
 extern volatile struct registered_users server;
 
+
 int readline(int sock,char *b);
 
 void* TCP_message_handler(void*);
 void REGIS_handler(int fd,int p);
-void CONNE_handler();
+void CONNE_handler(int sock, int p);
 void FRIEND_REQUEST_handler();
 //ecc ecc

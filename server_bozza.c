@@ -12,6 +12,7 @@
 
 extern volatile struct registered_users server;
 
+
 int main() {   
     //creiamo la struct degli utenti registrati
     server.number=0;

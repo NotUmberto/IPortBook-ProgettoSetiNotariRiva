@@ -12,6 +12,8 @@
 
 volatile struct registered_users server;
 
+pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
+
 int readline(int sock,char *b) {//se troviamo uno spazio abbiamo trovato una parola
     //ATTENZIONE A NON SUPERARE LA LUNGHEZZA DI B
     char *bpos=b;
@@ -22,7 +24,7 @@ int readline(int sock,char *b) {//se troviamo uno spazio abbiamo trovato una par
         *bpos=c;
     }
 
-    while(r==1 && *bpos!=' '){
+    while(r==1 && *bpos!=' ' && *bpos!='\n'){
         ++bpos;
         read(sock,bpos,sizeof(char));}
     if(r==1){
@@ -44,7 +46,7 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     if (p>MAXCLIENTS) { 
         printf("il server e' pieno!\n");
         close(fd);
-        return 1;
+        return;
     }
 
     char infoid[9];
@@ -55,7 +57,7 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     readline(fd, infoport);
     printf("port ricevuta: %s\n", infoport);
 
-    char infopass[6];
+    char infopass[8];
     readline(fd, infopass);
     printf("password ricevuta: %s\n", infopass);
 
@@ -68,6 +70,9 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     printf("password corretta\n");
 
     //creiamo il nuovo cliente
+    
+    pthread_mutex_lock(&lock);
+
     Client newclient;
     newclient=malloc(sizeof(struct client));
 
@@ -83,13 +88,58 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
 
     //lo aggiungiamo alla struct
     server.array[p]=newclient;
+    pthread_mutex_unlock(&lock);
     printf("cliente aggiunto alla struct con successo!\n");
     return;
 }
 
-void CONNE_handler() { 
+void CONNE_handler(int sock, int p) { 
     printf("siamo al conne\n");
-    //server.array[].isconnected=true;
+    //CONNE ID PASS+++
+    char infoid[9];
+    readline(sock, infoid);
+    printf("id ricevuto: %s\n", infoid);
+    if(strcmp(infoid,server.array[p]->id)==0)
+    {
+        printf("id corretto\n");
+    }
+    else
+    {
+        printf("id errato\n");
+
+        printf("invio GOBYE+++\n");
+        char goodbye_msg[]="GOBYE+++";
+        write(sock, goodbye_msg, strlen(goodbye_msg));
+
+        close(sock);
+        return;
+    }
+
+    char infopass[8];
+    readline(sock, infopass);
+    printf("password ricevuta: %s\n", infopass);
+    if(atoi(infopass)==server.array[p]->password)
+    {
+        printf("password corretta\n");
+
+        printf("invio HELLO+++\n");
+        char hello_msg[]="HELLO+++";
+        write(sock, hello_msg, strlen(hello_msg));
+
+        server.array[p]->isConnected=true;
+    }
+    else
+    {
+        printf("password errata\n");
+
+        printf("invio GOBYE+++\n");
+        char goodbye_msg[]="GOBYE+++";
+        write(sock, goodbye_msg, strlen(goodbye_msg));
+
+        close(sock);
+        return;
+    }
+
     return;
 }
 void FRIEND_REQUEST_handler() { 
