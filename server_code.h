@@ -17,6 +17,11 @@ typedef struct client {
     char* id;//sarà un array di 8 char
     char* UDP_port;//<9999
     int password; //tra 0 e 65535
+
+    //array degli amici grande al massimo MAXCLIENTS
+    int friendNumber;//per sapere
+    struct client* friends[MAXCLIENTS];
+
 } client;
 typedef struct client* Client; //per i puntatori
 
@@ -32,7 +37,7 @@ int readline(int sock,char *b);
 
 void* TCP_message_handler(void*);
 void REGIS_handler(int fd,int p);
-void CONNE_handler(int sock, int p);
+int CONNE_handler(int sock, int p);
 void FRIEND_REQUEST_handler();
 void MESSAGE_HANDLER();
 //ecc ecc

@@ -14,6 +14,21 @@ volatile struct registered_users server;
 
 pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
 
+//ritorna la posizione di id nell'array dei clienti. se non esiste ritorna -1
+int search_user_id(char* infoid)
+{
+    int p=-1;
+    for (unsigned i=0;i<server.number;i++) { 
+        //cerca il cliente
+        if (strcmp(server.array[i]->id,infoid)==0) { 
+            //printf("l'ho trovato\n");
+            p=i;
+            break;
+        }
+    } 
+    return p;
+}
+
 int readline(int sock,char *b) {//se troviamo uno spazio abbiamo trovato una parola
     //ATTENZIONE A NON SUPERARE LA LUNGHEZZA DI B
     char *bpos=b;
@@ -102,21 +117,13 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     return;
 }
 
-void CONNE_handler(int sock, int p) { 
+int CONNE_handler(int sock, int p) { 
     printf("siamo al CONNE\n");
     //CONNE ID PASS+++
     char infoid[9];
     readline(sock, infoid);
 
-    p=-1;
-    for (unsigned i=0;i<server.number;i++) { 
-        //cerca il cliente
-        if (strcmp(server.array[i]->id,infoid)==0) { 
-            //printf("l'ho trovato\n");
-            p=i;
-            break;
-        }
-    }  
+    p=search_user_id(infoid);
 
     //caso in cui e' stato fatto il CONNE senza REGIS
     if (p==-1) { 
@@ -127,7 +134,7 @@ void CONNE_handler(int sock, int p) {
         write(sock, goodbye_msg, strlen(goodbye_msg));
 
         close(sock);
-        return;
+        return -1;
     }
 
     printf("id ricevuto: %s\n", infoid);
@@ -142,7 +149,7 @@ void CONNE_handler(int sock, int p) {
         write(sock, goodbye_msg, strlen(goodbye_msg));
 
         close(sock);
-        return;
+        return -1;
     }
 
     printf("sto per leggere la password\n");
@@ -168,14 +175,66 @@ void CONNE_handler(int sock, int p) {
         write(sock, goodbye_msg, strlen(goodbye_msg));
 
         close(sock);
-        return;
+        return -1;
     }
 
-    return;
+    return p;
+}
+//controlla se 2 persone sono amiche.
+bool areFriends(int pos1, int pos2)
+{
+    if(pos1>=server.number || pos2>=server.number)
+    {
+        printf("errore areFriends(): uno (o piu) dei due utenti non è registrato nel server\n");
+        return false;
+    }
+    else
+    {
+        int minFriendNumber=server.array[pos1]->friendNumber;
+        if(server.array[pos2]->friendNumber<minFriendNumber)
+        {
+            minFriendNumber=server.array[pos2]->friendNumber;
+        }
+
+        for(int i=0;i<minFriendNumber;i++)
+        {
+            if(strcmp(server.array[pos1]->friends[i]->id,server.array[pos2]->id)==0)
+            {
+                //assumo che la relazione di amicizia sia biunivoca. quindi non controllo anche gli amici dell'altro utente
+                return true; 
+            }
+        }
+    }
+    return false;
 }
 
-void FRIEND_REQUEST_handler() { 
+void FRIEND_REQUEST_handler(int sock, int active_pos) { 
     printf("siamo al FRIEND_REQUEST\n");
+    
+    char infoid[9];
+    readline(sock, infoid);
+    printf("id ricevuto: %s\n", infoid);
+
+    //controlliamo se l'id esiste
+    int friend_pos=search_user_id(infoid);
+
+    char unknown_id_msg[]="FRIE<+++";
+    if(friend_pos==-1)//l'utente a cui vogliamo chiedere l'amicizia non esiste
+    {
+        printf("Utente inesistente. invio %s\n", unknown_id_msg);
+        write(sock, unknown_id_msg, strlen(unknown_id_msg)*sizeof(char));
+        return;
+    }
+    else if(friend_pos==active_pos)//l'utente vuole fare amicizia con se stesso
+    {
+        printf("Impossibile fare amicizia con se stessi. invio %s\n", unknown_id_msg);
+        write(sock, unknown_id_msg, strlen(unknown_id_msg)*sizeof(char));
+        return;
+    }
+    else if(areFriends(friend_pos, active_pos))//controlliamo se i due sono già amici
+    {
+        
+    }
     return;
 }
 
@@ -188,6 +247,9 @@ void MESSAGE_HANDLER() {
 //gestisce il cliente a seconda di quello che ha mandato. gli args dovranno includere almeno il sockfd per comunicare in tcp col cliente. probabilmente andranno anche inclusi i campi del chiamante compilati da accept() cosi da usarli in REGIS_handler() direi.
 void* TCP_message_handler(void* args) {
     struct package info=*((struct package*)args);
+
+    //posizione del cliente attuale in server.array[]. -1 se non la conosciamo ancora. verrà impostata da CONNE
+    int active_pos=-1;
 
     int buf1_size=6;
     char* buf1=malloc(buf1_size*sizeof(char));
@@ -210,11 +272,11 @@ void* TCP_message_handler(void* args) {
         {
             //char s;
             //read(info.activefd,&s,1);
-            CONNE_handler(info.activefd,info.pos);
+            active_pos=CONNE_handler(info.activefd,info.pos);
         }
         else if(strcmp(buf1, "FRIE?")==0 )
         {
-            FRIEND_REQUEST_handler();
+            FRIEND_REQUEST_handler(info.activefd, active_pos);
         }
         else if(strcmp(buf1, "MESS?")==0)
         {
@@ -249,6 +311,7 @@ void* TCP_message_handler(void* args) {
             char goodbye_msg[]="GOBYE+++";
             write(info.activefd, goodbye_msg, strlen(goodbye_msg));
             close(info.activefd);
+            pthread_exit(NULL);
             return NULL;
         }
     }

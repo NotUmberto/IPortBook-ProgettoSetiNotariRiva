@@ -41,16 +41,24 @@ int main() {
     printf("sto per iniziare il while\n");
     while(1) {
         int active_fd=accept(sockfd, (struct sockaddr*)&caller, &sizeofcaller);//op bloccante.
-        printf("ho accettato la connessione\n");
-        struct package user_info;
-        user_info.activefd=active_fd;
-        user_info.caller=caller;
-        user_info.sizecaller=sizeofcaller;
-        user_info.pos=server.number;
+        
+        if(active_fd<0) {
+            printf("errore accept\n");
+            return 1;
+        }
+        else
+        {
+            printf("ho accettato la connessione\n");
+            struct package user_info;
+            user_info.activefd=active_fd;
+            user_info.caller=caller;
+            user_info.sizecaller=sizeofcaller;
+            user_info.pos=server.number;
 
 
-        pthread_t tcp_thread;
-        pthread_create(&tcp_thread,NULL,TCP_message_handler,&user_info);
+            pthread_t tcp_thread;
+            pthread_create(&tcp_thread,NULL,TCP_message_handler,&user_info);
+        }
     }
     
 
