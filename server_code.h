@@ -14,12 +14,14 @@ typedef struct package* Package; //per i puntatori
 
 typedef struct client {
     bool isConnected;
+    bool flood;//per gestire i flood. come fosse visited nei grafi
     char* id;//sarà un array di 8 char
     char* UDP_port;//<9999
-    int password; //tra 0 e 65535
+    unsigned password; //tra 0 e 65535
+
 
     //array degli amici grande al massimo MAXCLIENTS
-    int friendNumber;//per sapere
+    int friendNumber;//per sapere il numero di amici
     struct client* friends[MAXCLIENTS];
 
 } client;

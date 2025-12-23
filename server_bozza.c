@@ -49,15 +49,16 @@ int main() {
         else
         {
             printf("ho accettato la connessione\n");
-            struct package user_info;
-            user_info.activefd=active_fd;
-            user_info.caller=caller;
-            user_info.sizecaller=sizeofcaller;
-            user_info.pos=server.number;
+            struct package* user_info=malloc(sizeof(struct package));
+            user_info->activefd=active_fd;
+            user_info->caller=caller;
+            user_info->sizecaller=sizeofcaller;
+            user_info->pos=server.number;
+
 
 
             pthread_t tcp_thread;
-            pthread_create(&tcp_thread,NULL,TCP_message_handler,&user_info);
+            pthread_create(&tcp_thread,NULL,TCP_message_handler,user_info);
         }
     }
     

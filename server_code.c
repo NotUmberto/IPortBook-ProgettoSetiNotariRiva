@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <endian.h>
 #include "server_code.h"
 
 volatile struct registered_users server;
@@ -51,6 +52,174 @@ int readline(int sock,char *b) {//se troviamo uno spazio abbiamo trovato una par
     }
 
 }
+
+//le seguenti funzioni devono essere usate se si è sicuri del prossimo campo che si vuole leggere. assumono che la prima cosa da leggere sia uno spazio(che verrà scartato). allocano della memoria che dovrà deallocare il chiamante. 
+char* read_id(int sock)
+{
+    int buf1_size=9; //tengo conto anche di un \0
+    char* buf1=malloc(buf1_size*sizeof(char));
+    read(sock, buf1, 1);//tolgo lo spazio
+    if(buf1[0]!=' ')
+    {
+            printf("errore read_id(): l'assunzione secondo la quale il primo carattere letto deve essere uno spazio è stata infranta\n");
+            free(buf1);
+            return NULL;
+    }
+    int byte_letti=read(sock, buf1, buf1_size-1);
+    if(byte_letti<buf1_size-1)
+    {
+        printf("errore read_id(): campo non standard\n");
+        free(buf1);
+        return NULL;
+    }
+    buf1[byte_letti]='\0';
+    return buf1;
+}
+
+char* read_UDP_port(int sock)
+{
+    int buf1_size=5; //tengo conto anche di un \0
+    char* buf1=malloc(buf1_size*sizeof(char));
+
+    read(sock, buf1, 1);//tolgo lo spazio
+    if(buf1[0]!=' ')
+    {
+            printf("errore read_UDP_port(): l'assunzione secondo la quale il primo carattere letto deve essere uno spazio è stata infranta\n");
+            free(buf1);
+            return NULL;
+    }
+    int byte_letti=read(sock, buf1, buf1_size-1);
+    if(byte_letti<buf1_size-1)
+    {
+        printf("errore read_UDP_port(): campo non standard\n");
+        free(buf1);
+        return NULL;
+    }
+    buf1[byte_letti]='\0';
+    return buf1;
+}
+//per il campo mdp ovvero la password. la cosa brutta è che nei messaggi è codificata in little endian. è codificata su 2 byte. intende caratteri o numeri? penso numeri perchè altrimenti non ha senso il discorso little endian e avere solo 100 password è un po poco
+uint16_t* read_password(int sock)
+{
+    int buf1_size=2;
+    uint16_t* buf1=malloc(sizeof(uint16_t));
+    *buf1=0;
+    char spazio='a';
+    read(sock, &spazio, 1);//tolgo lo spazio
+    if(spazio!=' ')
+    {
+            printf("errore read_password(): l'assunzione secondo la quale il primo carattere letto deve essere uno spazio è stata infranta\n");
+            free(buf1);
+            return NULL;
+    }
+    int byte_letti=read(sock, buf1, buf1_size);
+    if(byte_letti<buf1_size)
+    {
+        printf("errore read_password(): campo non standard\n");
+        free(buf1);
+        return NULL;
+    }
+
+    *buf1=le16toh(*buf1); //cosi funziona sia su little che su big endian
+
+    return buf1;
+}
+
+char* read_num_item(int sock)
+{
+    int buf1_size=4; //tengo conto anche di un \0
+    char* buf1=malloc(buf1_size*sizeof(char));
+    read(sock, buf1, 1);//tolgo lo spazio
+    if(buf1[0]!=' ')
+    {
+            printf("errore read_num_item(): l'assunzione secondo la quale il primo carattere letto deve essere uno spazio è stata infranta\n");
+            free(buf1);
+            return NULL;
+    }
+
+    int byte_letti=read(sock, buf1, buf1_size-1);
+    if(byte_letti<buf1_size-1)
+    {
+        printf("errore read_num_item(): campo non standard\n");
+        free(buf1);
+        return NULL;
+    }
+    buf1[byte_letti]='\0';
+    return buf1;
+}
+
+
+//vorrei farla simile alle precedenti ma il messaggio è di lunghezza variabile
+char* read_mess(int sock)
+{
+    //leggo char per char perchè qui devo rilevare il terminatore "+++"
+    int buf1_size=204;//200 per il messaggio, 3 per il terminatore, 1 per il nullbyte
+    char* buf1=malloc(buf1_size*sizeof(char));
+    char c=' '; //inizializzo cosi perchè è un carattere relativamente speciale
+    int byte_letti=0;
+
+    read(sock, &c, 1);//tolgo lo spazio iniziale
+    if(c!=' ')
+    {
+            printf("errore read_mess(): l'assunzione secondo la quale il primo carattere letto deve essere uno spazio è stata infranta\n");
+            free(buf1);
+            return NULL;
+    }
+
+    int plusCount=0;
+    int byte_totali=0;
+    while(plusCount<3 && byte_totali<buf1_size-1)
+    {
+        byte_letti=read(sock, &c, 1);
+        if(byte_letti<1)
+        {
+            printf("errore read_mess(): la lettura si è interrotta prima del terminatore\n");
+            free(buf1);
+            return NULL;
+        }
+
+        if(c=='+')plusCount++;
+        else 
+        {
+            plusCount=0;
+        }
+
+        buf1[byte_totali]=c;
+        byte_totali++;
+    }
+    buf1[byte_totali]='\0';
+    //qua bisogna fare attenzione se ho un mess che è tipo 199 caratteri e poi +++. col codice attuale uscirei solo perchè ho raggiunto i caratteri massimi. ma io devo uscire in primo luogo perchè ho incontrato i 3 +++. nell'esempio che ho appena fatto, avrei un messaggio tipo "ciao...+", ma magari questo + faceva parte del terminatore
+    if(plusCount==3)
+    {
+        //perfetto, abbiamo incontrato il terminatore
+        
+        buf1[byte_totali-plusCount]='\0';
+        char* buf2=malloc((byte_totali-plusCount+1)*sizeof(char));
+        strcpy(buf2, buf1);
+        free(buf1);
+
+        return buf2;
+        
+        
+    }
+    else if(byte_totali==buf1_size-1 && plusCount!=3)
+    {
+        //il messaggio era troppo lungo
+        printf("errore read_mess(): campo non standard\n");
+        free(buf1);
+        return NULL;
+    }
+    else
+    {
+        //non dovrebbe neanche arrivarci qua
+        printf("errore read_mess(): errore sconosciuto\n");
+        free(buf1);
+        return NULL;
+    }
+    return NULL;//risparmio warning
+}
+
+
 
 //lista di tutti i messaggi tcp possibili
 //REGIS, WELCO, GOBYE, CONNE, HELLO,FRIE?, FRIE>, FRIE<, MESS?, MESS>, MESS<, FLOO>, FLOO?, 
@@ -247,7 +416,9 @@ void MESSAGE_HANDLER() {
 //gestisce il cliente a seconda di quello che ha mandato. gli args dovranno includere almeno il sockfd per comunicare in tcp col cliente. probabilmente andranno anche inclusi i campi del chiamante compilati da accept() cosi da usarli in REGIS_handler() direi.
 void* TCP_message_handler(void* args) {
     struct package info=*((struct package*)args);
-
+    
+    free(args);
+    
     //posizione del cliente attuale in server.array[]. -1 se non la conosciamo ancora. verrà impostata da CONNE
     int active_pos=-1;
 
