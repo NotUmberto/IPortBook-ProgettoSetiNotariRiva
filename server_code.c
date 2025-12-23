@@ -219,6 +219,21 @@ char* read_mess(int sock)
     return NULL;//risparmio warning
 }
 
+//legge +++ cosi esauriamo completamente il messaggio corrente e non rimangono rimasugli del messaggio precedente 
+int read_terminator(int sock)
+{
+    //per terminare la lettura del comando
+    char terminatore[3];
+    int byte_letti=read(sock, terminatore, 3);
+    if(byte_letti<3)
+    {
+        printf("errore read_terminator():Formato del comando non standard\n");
+        write(sock, "GOBYE+++", 8); 
+        close(sock);
+        return -1;
+    }
+    return 0;
+}
 
 
 //lista di tutti i messaggi tcp possibili
@@ -273,17 +288,8 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
         close(fd);
         return;
     }
-    //per terminare la lettura del comando
-    char terminatore[3];
-    int byte_letti=read(fd, terminatore, 3);
-    if(byte_letti<3)
-    {
-        printf("errore REGIS_handler():Formato del comando non standard\n");
-        write(fd, "GOBYE+++", 8); 
-        close(fd);
-        return;
-    }
-    //
+    
+    if(read_terminator(fd)==-1)return;
 
     newclient->password=pass; //per la password
 
@@ -369,20 +375,11 @@ int CONNE_handler(int sock, int p) {
         return -1;
     }
 
-    //per terminare la lettura del comando
-    char terminatore[3];
-    int byte_letti=read(sock, terminatore, 3);
-    if(byte_letti<3)
-    {
-        printf("errore REGIS_handler():Formato del comando non standard\n");
-        write(sock, "GOBYE+++", 8); 
-        close(sock);
-        return-1;
-    }
-    //
+    if(read_terminator(sock)==-1)return -1;
 
     return p;//qua p dovrebbe contenere la posizione del cliente attuale nell'array
 }
+
 //controlla se 2 persone sono amiche.
 bool areFriends(int pos1, int pos2)
 {
@@ -445,9 +442,13 @@ void FRIEND_REQUEST_handler(int sock, int active_pos) {
     }
     else
     {
-        //mando la richiesta di amicizia e anche la notifica UDP credo
-        
+        //mando la richiesta di amicizia e anche la notifica UDP credo. 
+
+        //sia se l'utente è online, sia se non lo è, immagazzino il flusso(messaggio tcp)
     }
+
+    read_terminator(sock);
+
     return;
 }
 
@@ -465,7 +466,7 @@ void* TCP_message_handler(void* args) {
     
     //posizione del cliente attuale in server.array[]. -1 se non la conosciamo ancora. verrà impostata da CONNE
     int active_pos=-1;
-    
+
     int buf1_size=6;
     char* buf1=malloc(buf1_size*sizeof(char));
     while(1) {
