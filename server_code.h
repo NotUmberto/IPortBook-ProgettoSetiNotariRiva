@@ -19,6 +19,7 @@ typedef struct client {
     char* UDP_port;//<9999
     unsigned password; //tra 0 e 65535
 
+    //servirebbe un campo ip.(serve a quanto pare per mandare notifiche udp anche se non si ha fatto conne) questo perchè il prof sul forum ha detto che si presuppone che il cliente si colleghi sempre dallo stesso ip. questo comporta cambiamenti di REGIS e CONNE. oppure potremmo conservare le notifiche udp da mandare e mandarle quando il cliente si connette in tcp, senza bisogno di salvare l'ip. in quest'ultimo caso mandiamo le notifiche indipendentemente dall'ip del client. se si è connesso correttamente tramite conne assumo che sia lui. userei quest'ultima opzione.
 
     //array degli amici grande al massimo MAXCLIENTS
     int friendNumber;//per sapere il numero di amici

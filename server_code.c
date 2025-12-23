@@ -239,48 +239,69 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     newclient=malloc(sizeof(struct client));
 
     //---------lettura id--------------
-    char infoid[9];
-    readline(fd, infoid);
+    char* infoid=read_id(fd);
+    if(infoid==NULL)return;//non stampo niente perchè lo fa gia la read_...(fd) di turno
     printf("id ricevuto: %s\n", infoid);
 
     //printf("lunghezza di infoid -%s- %ld\n",infoid,strlen(infoid));
     newclient->id=malloc(strlen(infoid)+1); 
     strcpy(newclient->id,infoid);
 
+    free(infoid);
+
     //---------lettura porta UDP--------------
-    char infoport[5];
-    readline(fd, infoport);
+    char* infoport=read_UDP_port(fd);
+    if(infoport==NULL)return;//non stampo niente perchè lo fa gia la read_...(fd) di turno
     printf("port ricevuta: %s\n", infoport);
 
     newclient->UDP_port=malloc(strlen(infoport)+1); 
     strcpy(newclient->UDP_port,infoport);
 
+    free(infoport);
     //---------lettura password--------------
-    char infopass[9];
-    readline(fd, infopass);
-    int pass=atoi(infopass);
+    
+    uint16_t* temp=read_password(fd);
 
+    if(temp==NULL)return;//non stampo niente perchè lo fa gia la read_...(fd) di turno
+    uint16_t pass=*temp;
+    free(temp);
     printf("password ricevuta: %d\n", pass);
 
     if (pass<0 || pass>65535) { 
         printf("password errata\n");
-        write(fd, "GOBYE+++", 8); //invio il messaggio di errore
+        write(fd, "GOBYE+++", 8); 
         close(fd);
         return;
     }
+    //per terminare la lettura del comando
+    char terminatore[3];
+    int byte_letti=read(fd, terminatore, 3);
+    if(byte_letti<3)
+    {
+        printf("errore REGIS_handler():Formato del comando non standard\n");
+        write(fd, "GOBYE+++", 8); 
+        close(fd);
+        return;
+    }
+    //
+
     newclient->password=pass; //per la password
 
     //---------inserimento connection--------------
-    newclient->isConnected=true;
+
+    newclient->isConnected=true; //siamo sicuri di sta linea? 
 
     //---------aggiunta alla struct degli utenti registrati--------------
     server.array[p]=newclient;
+
+    server.number++;
+
     pthread_mutex_unlock(&lock);
     printf("cliente aggiunto alla struct con successo!\n");
 
     //printf("stampo i dati del nuovo cliente\n");
     //printf("id %s, udp %s, pass %d\n",server.array[p]->id,server.array[p]->UDP_port,server.array[p]->password);
-    server.number++;
+    
 
     write(fd, "WELCO+++", 8); //invio il messaggio di benvenuto
     return;
@@ -289,8 +310,10 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
 int CONNE_handler(int sock, int p) { 
     printf("siamo al CONNE\n");
     //CONNE ID PASS+++
-    char infoid[9];
-    readline(sock, infoid);
+
+    char* infoid=read_id(sock);
+    if(infoid==NULL)return -1;//non stampo niente perchè lo fa gia la read_...(fd) di turno
+    printf("id ricevuto: %s\n", infoid);
 
     p=search_user_id(infoid);
 
@@ -305,10 +328,8 @@ int CONNE_handler(int sock, int p) {
         close(sock);
         return -1;
     }
-
-    printf("id ricevuto: %s\n", infoid);
-
-    if(strcmp(infoid,server.array[p]->id)==0) {
+    /*
+    if(strcmp(infoid,server.array[p]->id)==0) {//forse superfluo perchè lo fa search_user_id
         printf("id corretto\n");
     } else {
         printf("id errato\n");
@@ -320,12 +341,13 @@ int CONNE_handler(int sock, int p) {
         close(sock);
         return -1;
     }
-
+    */
     printf("sto per leggere la password\n");
-    char infopass[6];
-    readline(sock, infopass);
-    printf("password ricevuta: %s\n", infopass);
-    if(atoi(infopass)==server.array[p]->password)
+    uint16_t* infopass=read_password(sock);
+    if(infopass==NULL)return -1;//non stampo niente perchè lo fa gia la read_...(fd) di turno
+    printf("password ricevuta: %u\n", *infopass);
+
+    if(*infopass==server.array[p]->password)
     {
         printf("password corretta\n");
 
@@ -347,7 +369,19 @@ int CONNE_handler(int sock, int p) {
         return -1;
     }
 
-    return p;
+    //per terminare la lettura del comando
+    char terminatore[3];
+    int byte_letti=read(sock, terminatore, 3);
+    if(byte_letti<3)
+    {
+        printf("errore REGIS_handler():Formato del comando non standard\n");
+        write(sock, "GOBYE+++", 8); 
+        close(sock);
+        return-1;
+    }
+    //
+
+    return p;//qua p dovrebbe contenere la posizione del cliente attuale nell'array
 }
 //controlla se 2 persone sono amiche.
 bool areFriends(int pos1, int pos2)
@@ -380,28 +414,38 @@ bool areFriends(int pos1, int pos2)
 void FRIEND_REQUEST_handler(int sock, int active_pos) { 
     printf("siamo al FRIEND_REQUEST\n");
     
-    char infoid[9];
-    readline(sock, infoid);
+    //leggo id
+    char* infoid=read_id(sock);
+    if(infoid==NULL)return;//non stampo niente perchè lo fa gia la read_...(fd) di turno
     printf("id ricevuto: %s\n", infoid);
 
     //controlliamo se l'id esiste
     int friend_pos=search_user_id(infoid);
 
-    char unknown_id_msg[]="FRIE<+++";
+    char request_not_sent_msg[]="FRIE<+++";
     if(friend_pos==-1)//l'utente a cui vogliamo chiedere l'amicizia non esiste
     {
-        printf("Utente inesistente. invio %s\n", unknown_id_msg);
-        write(sock, unknown_id_msg, strlen(unknown_id_msg)*sizeof(char));
+        printf("Utente inesistente. invio %s\n", request_not_sent_msg);
+        write(sock, request_not_sent_msg, strlen(request_not_sent_msg)*sizeof(char));
         return;
     }
     else if(friend_pos==active_pos)//l'utente vuole fare amicizia con se stesso
     {
-        printf("Impossibile fare amicizia con se stessi. invio %s\n", unknown_id_msg);
-        write(sock, unknown_id_msg, strlen(unknown_id_msg)*sizeof(char));
+        printf("Impossibile fare amicizia con se stessi. invio %s\n", request_not_sent_msg);
+        write(sock, request_not_sent_msg, strlen(request_not_sent_msg)*sizeof(char));
         return;
     }
     else if(areFriends(friend_pos, active_pos))//controlliamo se i due sono già amici
     {
+        //mando FRIE<+++. nulla di grave ma non mando richiesta.
+        printf("I due utenti sono già amici. invio %s\n", request_not_sent_msg);
+        write(sock, request_not_sent_msg, strlen(request_not_sent_msg)*sizeof(char));
+        return;
+
+    }
+    else
+    {
+        //mando la richiesta di amicizia e anche la notifica UDP credo
         
     }
     return;
@@ -421,15 +465,15 @@ void* TCP_message_handler(void* args) {
     
     //posizione del cliente attuale in server.array[]. -1 se non la conosciamo ancora. verrà impostata da CONNE
     int active_pos=-1;
-
+    
     int buf1_size=6;
     char* buf1=malloc(buf1_size*sizeof(char));
     while(1) {
         printf("sto per leggere il comando\n");
-        int val=read(info.activefd, buf1, buf1_size);
+        int val=read(info.activefd, buf1, buf1_size-1);
         printf("valore di read: %d\n", val);
         printf("ho appena letto il comando\n");
-        buf1[val-1]='\0';
+        buf1[val]='\0';
         printf("strlen=%ld\n", strlen(buf1));
         printf("comando ricevuto: %s\n", buf1);
 

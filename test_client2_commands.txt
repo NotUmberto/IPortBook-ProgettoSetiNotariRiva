@@ -1,2 +1,1 @@
-REGIS lucaluca 5555 11111
-CONNE lucaluca 11111
+REGIS lucaluca 5555 11CONNE lucaluca 11

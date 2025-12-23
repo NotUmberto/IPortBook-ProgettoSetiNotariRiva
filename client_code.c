@@ -56,62 +56,63 @@ void TCP_message_handler(int sockfd)
         else if(strcmp(buf1, "HELLO+++")==0)
         {
             HELLO_handler();
+            return;
         }
         else if(strcmp(buf1, "FRIE>+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "FRIE<+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "MESS>+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "MESS<+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "FLOO>+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "RLIST+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "LINUM+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "SSEM>+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "OOLF>+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "EIRF>+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "ACKRF+++")==0)
         {
-            
+            return;
         }
         else if(strcmp(buf1, "FRIEN+++")==0)
         {
-
+          return;
         }
         else if(strcmp(buf1, "NOFRI+++")==0)
         {
-
+            return;
         }
         else if(strcmp(buf1, "NOCON+++")==0)
         {
-
+            return;
         }
         else 
         {

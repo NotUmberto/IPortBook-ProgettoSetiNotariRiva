@@ -40,6 +40,11 @@ int main() {
     {
         printf("puoi inviare un messaggio\n");
         fgets(buf1, buf1_size, stdin); //mandiamo il segnale
+
+        //togliamo il \n dopo i +++. se non lo facciamo il server legge male.
+        if(buf1[strlen(buf1)-1]=='\n')buf1[strlen(buf1)-1]='\0';
+
+
         write(sockfd, buf1, strlen(buf1)); //SI MANDA QUANTO LETTO NON SEMPRE LA STESSA GRANDEZZA
 
         TCP_message_handler(sockfd); //gestisce cosa riceve   
