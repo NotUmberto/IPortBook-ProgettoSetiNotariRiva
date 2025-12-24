@@ -15,8 +15,8 @@ volatile struct registered_users server;
 
 pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
 
-//l'idea è avere una funzione che dealloca la memoria può chiudere la connessione, può rilasciare il lock e può inviare gobye
-void cleanup(int fd,char* infoid, char* infoport, uint16_t* infopass, bool release_lock)
+//l'idea è avere una funzione che dealloca la memoria può chiudere la connessione, può rilasciare il lock e può inviare gobye. l'ho fatta perchè è comune a moltissimi handler
+void cleanup(int fd,char* infoid, char* infoport, uint16_t* infopass, char* infomess ,bool release_lock)
 {
     if(fd>=0)
     {
@@ -26,7 +26,15 @@ void cleanup(int fd,char* infoid, char* infoport, uint16_t* infopass, bool relea
     if(infoid!=NULL)free(infoid);
     if(infoport!=NULL)free(infoport);
     if(infopass!=NULL)free(infopass);
+    if(infomess!=NULL)free(infomess);
     if(release_lock)pthread_mutex_unlock(&lock);
+}
+
+//per mandare una notifica. sia se l'utente è online, sia se non lo è, immagazzino le informazioni(flusso e notifica) in una struttura dati opportuna. se l'utente target è online effettivamente gli mando la notifica, altrimenti no. inoltre alla fine del CONNE bisognerebbe mandare l'ultima notifica, se l'utente ne ha ancora da leggere. per quanto riguarda la struttura dati da usare. uno stack sarebbe perfetto perchè gestirebbe anche l'incremento e il decremento del numero delle notifiche rimanenti. magari lo implementiamo come una lista collegata semplicissima e operiamo sempre sulla testa
+void send_UDP_notify(int UDP_sock, struct sockaddr_in caller, int active_pos, int notify_type)
+{
+    
+    //caller.sin_port=server.array[active_pos]->;
 }
 
 //ritorna la posizione di id nell'array dei clienti. se non esiste ritorna -1
@@ -284,7 +292,7 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     if(atoi(infoport)<0 || atoi(infoport)>9999)
     {
         printf("Porta UDP non valida\n");
-        cleanup(fd, infoid, infoport, NULL, true);
+        cleanup(fd, infoid, infoport, NULL, NULL, true);
         return;
     }
 
@@ -301,7 +309,7 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
 
     if (pass<0 || pass>65535) { 
         printf("password errata\n");
-        cleanup(fd, infoid, infoport, NULL, true);
+        cleanup(fd, infoid, infoport, NULL, NULL, true);
         free(newclient);
         return;
     }
@@ -321,7 +329,7 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
 
     printf("cliente aggiunto alla struct con successo!\n");
 
-    cleanup(-1, infoid, infoport, NULL, true);
+    cleanup(-1, infoid, infoport, NULL, NULL, true);
 
     write(fd, "WELCO+++", 8); //invio il messaggio di benvenuto
     return;
@@ -337,7 +345,7 @@ int CONNE_handler(int sock, int p) {
     char* infoid=read_id(sock);
     if(infoid==NULL)//non stampo niente perchè lo fa gia la read_...(fd) di turno
     {
-        cleanup(sock,NULL, NULL, NULL, true);
+        cleanup(sock,NULL, NULL, NULL, NULL, true);
         return -1;
     }
     printf("id ricevuto: %s\n", infoid);
@@ -347,7 +355,7 @@ int CONNE_handler(int sock, int p) {
     //caso in cui e' stato fatto il CONNE senza REGIS
     if (p==-1) { 
         printf("id non trovato\n");
-        cleanup(sock,infoid, NULL, NULL, true);
+        cleanup(sock,infoid, NULL, NULL, NULL, true);
         return -1;
     }
 
@@ -369,17 +377,17 @@ int CONNE_handler(int sock, int p) {
     else
     {
         printf("password errata\n");
-        cleanup(sock,infoid, NULL, infopass, true);
+        cleanup(sock,infoid, NULL, infopass, NULL, true);
 
         return -1;
     }
 
     if(read_terminator(sock)==-1)
     {
-        cleanup(sock, infoid, NULL, infopass, true);
+        cleanup(sock, infoid, NULL, infopass, NULL,true);
         return -1;
     }
-    cleanup(-1, infoid, NULL, infopass, true);
+    cleanup(-1, infoid, NULL, infopass, NULL, true);
     return p;//qua p dovrebbe contenere la posizione del cliente attuale nell'array
 }
 
@@ -428,27 +436,24 @@ void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) {
     {
         printf("Utente inesistente. invio %s\n", request_not_sent_msg);
         write(sock, request_not_sent_msg, strlen(request_not_sent_msg)*sizeof(char));
-        return;
     }
     else if(friend_pos==active_pos)//l'utente vuole fare amicizia con se stesso
     {
         printf("Impossibile fare amicizia con se stessi. invio %s\n", request_not_sent_msg);
         write(sock, request_not_sent_msg, strlen(request_not_sent_msg)*sizeof(char));
-        return;
     }
     else if(areFriends(friend_pos, active_pos))//controlliamo se i due sono già amici
     {
         //mando FRIE<+++. nulla di grave ma non mando richiesta.
         printf("I due utenti sono già amici. invio %s\n", request_not_sent_msg);
         write(sock, request_not_sent_msg, strlen(request_not_sent_msg)*sizeof(char));
-        return;
 
     }
     else
     {
         //mando la richiesta di amicizia e anche la notifica UDP credo. 
 
-        //sia se l'utente è online, sia se non lo è, immagazzino il flusso(messaggio tcp)
+        
     }
 
     read_terminator(sock);
