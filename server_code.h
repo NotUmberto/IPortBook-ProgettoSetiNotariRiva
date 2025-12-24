@@ -42,5 +42,5 @@ void* TCP_message_handler(void*);
 void REGIS_handler(int fd,int p);
 int CONNE_handler(int sock, int p);
 void FRIEND_REQUEST_handler();
-void MESSAGE_HANDLER();
+void MESSAGE_handler();
 //ecc ecc

@@ -15,6 +15,20 @@ volatile struct registered_users server;
 
 pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
 
+//l'idea è avere una funzione che dealloca la memoria può chiudere la connessione, può rilasciare il lock e può inviare gobye
+void cleanup(int fd,char* infoid, char* infoport, uint16_t* infopass, bool release_lock)
+{
+    if(fd>=0)
+    {
+        write(fd, "GOBYE+++", 8); 
+        close(fd);
+    }
+    if(infoid!=NULL)free(infoid);
+    if(infoport!=NULL)free(infoport);
+    if(infopass!=NULL)free(infopass);
+    if(release_lock)pthread_mutex_unlock(&lock);
+}
+
 //ritorna la posizione di id nell'array dei clienti. se non esiste ritorna -1
 int search_user_id(char* infoid)
 {
@@ -262,17 +276,20 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
     newclient->id=malloc(strlen(infoid)+1); 
     strcpy(newclient->id,infoid);
 
-    free(infoid);
-
     //---------lettura porta UDP--------------
     char* infoport=read_UDP_port(fd);
     if(infoport==NULL)return;//non stampo niente perchè lo fa gia la read_...(fd) di turno
     printf("port ricevuta: %s\n", infoport);
 
+    if(atoi(infoport)<0 || atoi(infoport)>9999)
+    {
+        printf("Porta UDP non valida\n");
+        cleanup(fd, infoid, infoport, NULL, true);
+        return;
+    }
+
     newclient->UDP_port=malloc(strlen(infoport)+1); 
     strcpy(newclient->UDP_port,infoport);
-
-    free(infoport);
     //---------lettura password--------------
     
     uint16_t* temp=read_password(fd);
@@ -284,8 +301,8 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
 
     if (pass<0 || pass>65535) { 
         printf("password errata\n");
-        write(fd, "GOBYE+++", 8); 
-        close(fd);
+        cleanup(fd, infoid, infoport, NULL, true);
+        free(newclient);
         return;
     }
     
@@ -302,23 +319,27 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
 
     server.number++;
 
-    pthread_mutex_unlock(&lock);
     printf("cliente aggiunto alla struct con successo!\n");
 
-    //printf("stampo i dati del nuovo cliente\n");
-    //printf("id %s, udp %s, pass %d\n",server.array[p]->id,server.array[p]->UDP_port,server.array[p]->password);
-    
+    cleanup(-1, infoid, infoport, NULL, true);
 
     write(fd, "WELCO+++", 8); //invio il messaggio di benvenuto
     return;
 }
 
+
 int CONNE_handler(int sock, int p) { 
     printf("siamo al CONNE\n");
     //CONNE ID PASS+++
 
+    pthread_mutex_lock(&lock);
+
     char* infoid=read_id(sock);
-    if(infoid==NULL)return -1;//non stampo niente perchè lo fa gia la read_...(fd) di turno
+    if(infoid==NULL)//non stampo niente perchè lo fa gia la read_...(fd) di turno
+    {
+        cleanup(sock,NULL, NULL, NULL, true);
+        return -1;
+    }
     printf("id ricevuto: %s\n", infoid);
 
     p=search_user_id(infoid);
@@ -326,28 +347,10 @@ int CONNE_handler(int sock, int p) {
     //caso in cui e' stato fatto il CONNE senza REGIS
     if (p==-1) { 
         printf("id non trovato\n");
-
-        printf("invio GOBYE+++\n");
-        char goodbye_msg[]="GOBYE+++";
-        write(sock, goodbye_msg, strlen(goodbye_msg));
-
-        close(sock);
+        cleanup(sock,infoid, NULL, NULL, true);
         return -1;
     }
-    /*
-    if(strcmp(infoid,server.array[p]->id)==0) {//forse superfluo perchè lo fa search_user_id
-        printf("id corretto\n");
-    } else {
-        printf("id errato\n");
 
-        printf("invio GOBYE+++\n");
-        char goodbye_msg[]="GOBYE+++";
-        write(sock, goodbye_msg, strlen(goodbye_msg));
-
-        close(sock);
-        return -1;
-    }
-    */
     printf("sto per leggere la password\n");
     uint16_t* infopass=read_password(sock);
     if(infopass==NULL)return -1;//non stampo niente perchè lo fa gia la read_...(fd) di turno
@@ -366,17 +369,17 @@ int CONNE_handler(int sock, int p) {
     else
     {
         printf("password errata\n");
+        cleanup(sock,infoid, NULL, infopass, true);
 
-        printf("invio GOBYE+++\n");
-        char goodbye_msg[]="GOBYE+++";
-        write(sock, goodbye_msg, strlen(goodbye_msg));
-
-        close(sock);
         return -1;
     }
 
-    if(read_terminator(sock)==-1)return -1;
-
+    if(read_terminator(sock)==-1)
+    {
+        cleanup(sock, infoid, NULL, infopass, true);
+        return -1;
+    }
+    cleanup(-1, infoid, NULL, infopass, true);
     return p;//qua p dovrebbe contenere la posizione del cliente attuale nell'array
 }
 
@@ -408,8 +411,9 @@ bool areFriends(int pos1, int pos2)
     return false;
 }
 
-void FRIEND_REQUEST_handler(int sock, int active_pos) { 
+void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) { 
     printf("siamo al FRIEND_REQUEST\n");
+    
     
     //leggo id
     char* infoid=read_id(sock);
@@ -448,12 +452,12 @@ void FRIEND_REQUEST_handler(int sock, int active_pos) {
     }
 
     read_terminator(sock);
-
+    free(infoid);
     return;
 }
 
-void MESSAGE_HANDLER() { 
-    printf("siamo al MESSAGE_HANDLER\n");
+void MESSAGE_handler() { 
+    printf("siamo al MESSAGE_handler\n");
     return;
 }
 //ecc ecc
@@ -461,11 +465,13 @@ void MESSAGE_HANDLER() {
 //gestisce il cliente a seconda di quello che ha mandato. gli args dovranno includere almeno il sockfd per comunicare in tcp col cliente. probabilmente andranno anche inclusi i campi del chiamante compilati da accept() cosi da usarli in REGIS_handler() direi.
 void* TCP_message_handler(void* args) {
     struct package info=*((struct package*)args);
-    
     free(args);
-    
+
     //posizione del cliente attuale in server.array[]. -1 se non la conosciamo ancora. verrà impostata da CONNE
     int active_pos=-1;
+    int UDP_sock=socket(AF_INET, SOCK_DGRAM, 0);//non faccio bind perchè qua il server non riceve in udp
+    //ora possiamo mandare con sendto(). possiamo ottenere la sockaddr giusta unendo caller e la udp port contenuta nella struct del cliente
+
 
     int buf1_size=6;
     char* buf1=malloc(buf1_size*sizeof(char));
@@ -486,17 +492,16 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "CONNE")==0 )
         {
-            //char s;
-            //read(info.activefd,&s,1);
+            //UDP_sock verrà compilato qua
             active_pos=CONNE_handler(info.activefd,info.pos);
         }
         else if(strcmp(buf1, "FRIE?")==0 )
         {
-            FRIEND_REQUEST_handler(info.activefd, active_pos);
+            FRIEND_REQUEST_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "MESS?")==0)
         {
-            MESSAGE_HANDLER();
+            MESSAGE_handler();
         }
         else if(strcmp(buf1, "FLOO?")==0)
         {
