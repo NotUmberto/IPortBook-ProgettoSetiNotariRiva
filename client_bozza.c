@@ -31,8 +31,11 @@ int main() {
 
     printf("Scegli la tua porta UDP:\n");
     int udp_port=5555;
+    
     scanf("%d", &udp_port);
     
+    char trash;
+    fread(&trash, 1, sizeof(char), stdin); //'\n'
 
     printf("Connesso.\ninviare un messaggio al server...\n");
 
@@ -46,7 +49,7 @@ int main() {
     {
         printf("puoi inviare un messaggio\n");
         fgets(buf1, buf1_size, stdin); //mandiamo il segnale
-
+        printf("mandato messaggio:%s\n", buf1);
         //togliamo il \n dopo i +++. se non lo facciamo il server legge male.
         if(buf1[strlen(buf1)-1]=='\n')buf1[strlen(buf1)-1]='\0';
 

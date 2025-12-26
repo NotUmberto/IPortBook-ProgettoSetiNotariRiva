@@ -30,8 +30,7 @@ void TCP_message_handler(int sockfd)
     char* buf1=malloc(buf1_size*sizeof(char));
     buf1[buf1_size-1]='\0'; 
 
-    while(1)
-    {
+    
         printf("sto per leggere il messaggio\n");
         int sizeread=read(sockfd, buf1, buf1_size-1);
         buf1[buf1_size-1]='\0';
@@ -42,87 +41,69 @@ void TCP_message_handler(int sockfd)
           close(sockfd);
           return;
         }*/
-                printf("puoi inviare un messaggio\n");
+        
         if(strcmp(buf1, "WELCO+++")==0)
         {
             WELCO_handler();
-            return;
         }
         else if(strcmp(buf1, "GOBYE+++")==0)
         {
             GOBYE_handler();
-            return;
+            exit(0);
         }
         else if(strcmp(buf1, "HELLO+++")==0)
         {
             HELLO_handler();
-            return;
         }
         else if(strcmp(buf1, "FRIE>+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "FRIE<+++")==0)
         {
-            return;
+            printf("Richiesta non mandata\n");
         }
         else if(strcmp(buf1, "MESS>+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "MESS<+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "FLOO>+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "RLIST+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "LINUM+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "SSEM>+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "OOLF>+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "EIRF>+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "ACKRF+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "FRIEN+++")==0)
         {
-          return;
         }
         else if(strcmp(buf1, "NOFRI+++")==0)
         {
-            return;
         }
         else if(strcmp(buf1, "NOCON+++")==0)
         {
-            return;
         }
         else 
         {
             printf("messaggio sconosciuto\n");
             close(sockfd);
-            return;
         }
-        
-        
-    }
+        return;
 }
 
 void *ListenNotify(void *port) {

@@ -23,6 +23,7 @@ void cleanup(int fd,char* infoid, char* infoport, uint16_t* infopass, char* info
     {
         write(fd, "GOBYE+++", 8); 
         close(fd);
+        pthread_exit(NULL);//facciamo terminare solo questo thread
     }
     if(infoid!=NULL)free(infoid);
     if(infoport!=NULL)free(infoport);
@@ -49,6 +50,7 @@ int my_pow(int b,int e) //non ho incluso math.h perchè il linker si arrabbiava.
 //flux deve terminare con \0.
 void send_UDP_notify(int UDP_sock, int active_pos, int target_pos, int notify_type, char* flux)
 {
+    printf("A\n");
     if(notify_type<0 || notify_type>4)
     {
         printf("send_UDP_notify():notify_type illegale\n");
@@ -62,27 +64,29 @@ void send_UDP_notify(int UDP_sock, int active_pos, int target_pos, int notify_ty
     strcpy(toSend.flux, flux);
 
     toSend.notify=malloc(4); //[YXX]. conto anche un \0
-
+    printf("B\n");
     //se ci ricordiamo usiamo sprintf
     toSend.notify[0]=(char)(48+notify_type); //48 in ascii è 0. 
 
     notifyAndFlux* top=stack_top(&(server.array[target_pos]->notifies));
-
+    printf("C\n");
 
     int converted=0;
-
-    for(int i=1;i<3;i++)
+    if(top!=NULL)
     {
-        if(48<=top->notify[i] && top->notify[i]<=57)
+        for(int i=1;i<3;i++)
         {
-            converted+=(top->notify[i]-48)*my_pow(16, i-1);
-        }
-        else if(65<=top->notify[i] && top->notify[i]<=70)
-        {
-            converted+=((top->notify[i]-65)+10)*my_pow(16, i-1);
+            if(48<=top->notify[i] && top->notify[i]<=57)
+            {
+                converted+=(top->notify[i]-48)*my_pow(16, i-1);
+            }
+            else if(65<=top->notify[i] && top->notify[i]<=70)
+            {
+                converted+=((top->notify[i]-65)+10)*my_pow(16, i-1);
+            }
         }
     }
-    
+    printf("D\n");
     if(converted<255)
     {
         converted++;
@@ -116,7 +120,7 @@ void send_UDP_notify(int UDP_sock, int active_pos, int target_pos, int notify_ty
         }
     } 
     
-
+    printf("E\n");
     
     
 
@@ -336,8 +340,8 @@ int read_terminator(int sock)
     if(byte_letti<3)
     {
         printf("errore read_terminator():Formato del comando non standard\n");
-        write(sock, "GOBYE+++", 8); 
-        close(sock);
+        
+        cleanup(sock, NULL, NULL,NULL,NULL,0);
         return -1;
     }
     return 0;
@@ -390,7 +394,7 @@ void REGIS_handler(int fd,int p, struct sockaddr_in caller) { //la sequenza di l
     newclient->address=caller;
 
     newclient->address.sin_port=htons(atoi(infoport));//tanto caller è una copia
-
+    
     //---------lettura password--------------
     
     uint16_t* temp=read_password(fd);
@@ -427,7 +431,6 @@ void REGIS_handler(int fd,int p, struct sockaddr_in caller) { //la sequenza di l
     write(fd, "WELCO+++", 8); //invio il messaggio di benvenuto
     return;
 }
-
 
 int CONNE_handler(int sock, int p) { 
     printf("siamo al CONNE\n");
@@ -488,6 +491,13 @@ int CONNE_handler(int sock, int p) {
     return p;//qua p dovrebbe contenere la posizione del cliente attuale nell'array
 }
 
+void IQUIT_handler(int sock, int active_pos)
+{
+    pthread_mutex_lock(&lock);
+    server.array[active_pos]->isConnected=false;
+    cleanup(sock, NULL, NULL, NULL, NULL, true);
+}
+
 //controlla se 2 persone sono amiche.
 bool areFriends(int pos1, int pos2)
 {
@@ -537,6 +547,7 @@ void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) {
     else if(friend_pos==active_pos)//l'utente vuole fare amicizia con se stesso
     {
         printf("Impossibile fare amicizia con se stessi. invio %s\n", request_not_sent_msg);
+        send_UDP_notify(UDP_sock,active_pos, friend_pos, 0, "CIAO+++");
         write(sock, request_not_sent_msg, strlen(request_not_sent_msg)*sizeof(char));
     }
     else if(areFriends(friend_pos, active_pos))//controlliamo se i due sono già amici
@@ -656,14 +667,14 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "IQUIT")==0)
         {
+            IQUIT_handler(info.activefd, active_pos);
+            return NULL;
         }
         else 
         {
             printf("comando non riconosciuto\n");
-            char goodbye_msg[]="GOBYE+++";
-            write(info.activefd, goodbye_msg, strlen(goodbye_msg));
-            close(info.activefd);
-            pthread_exit(NULL);
+            
+            cleanup(info.activefd, NULL,NULL,NULL,NULL, 0);
             return NULL;
         }
     }
