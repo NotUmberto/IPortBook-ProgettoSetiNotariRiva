@@ -28,9 +28,15 @@ int main() {
         close(sockfd);
         return 1;
     }
+
+    printf("Scegli la tua porta UDP:\n");
+    int udp_port=5555;
+    scanf("%d", &udp_port);
+    
+
     printf("Connesso.\ninviare un messaggio al server...\n");
 
-    int udp_port=5555;
+    
     pthread_t udp_thread;
     pthread_create(&udp_thread,NULL,ListenNotify,&udp_port);
 

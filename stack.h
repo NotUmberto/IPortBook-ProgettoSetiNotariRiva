@@ -1,8 +1,8 @@
 
 typedef struct notifyAndFlux
 {
-    char* notify;
-    char* flux;
+    char* notify;// YXX\0
+    char* flux; // TYPE ARG ARG+++
 } notifyAndFlux;
 
 struct cell

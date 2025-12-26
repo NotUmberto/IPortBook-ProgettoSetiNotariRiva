@@ -31,7 +31,7 @@ void cleanup(int fd,char* infoid, char* infoport, uint16_t* infopass, char* info
     if(release_lock)pthread_mutex_unlock(&lock);
 }
 
-int pow(int b,int e) //non ho incluso math.h perchè il linker si arrabbiava. 
+int my_pow(int b,int e) //non ho incluso math.h perchè il linker si arrabbiava. 
 {
     int ret=1;
     if(e>0)
@@ -47,7 +47,7 @@ int pow(int b,int e) //non ho incluso math.h perchè il linker si arrabbiava.
 //per mandare una notifica. sia se l'utente è online, sia se non lo è, immagazzino le informazioni(flusso e notifica) in una struttura dati opportuna. se l'utente target è online effettivamente gli mando la notifica, altrimenti no. inoltre alla fine del CONNE bisognerebbe mandare l'ultima notifica, se l'utente ne ha ancora da leggere. per quanto riguarda la struttura dati da usare. uno stack sarebbe perfetto perchè gestirebbe anche l'incremento e il decremento del numero delle notifiche rimanenti. magari lo implementiamo come una lista collegata semplicissima e operiamo sempre sulla testa
 
 //flux deve terminare con \0.
-void send_UDP_notify(int UDP_sock, struct sockaddr_in caller, int active_pos, int target_pos, int notify_type, char* flux)
+void send_UDP_notify(int UDP_sock, int active_pos, int target_pos, int notify_type, char* flux)
 {
     if(notify_type<0 || notify_type>4)
     {
@@ -75,11 +75,11 @@ void send_UDP_notify(int UDP_sock, struct sockaddr_in caller, int active_pos, in
     {
         if(48<=top->notify[i] && top->notify[i]<=57)
         {
-            converted+=(top->notify[i]-48)*pow(16, i-1);
+            converted+=(top->notify[i]-48)*my_pow(16, i-1);
         }
         else if(65<=top->notify[i] && top->notify[i]<=70)
         {
-            converted+=((top->notify[i]-65)+10)*pow(16, i-1);
+            converted+=((top->notify[i]-65)+10)*my_pow(16, i-1);
         }
     }
     
@@ -106,14 +106,18 @@ void send_UDP_notify(int UDP_sock, struct sockaddr_in caller, int active_pos, in
 
         //in tutti i casi mettiamo toSend nello stack. se il cliente è online gli mandiamo una notifica udp che dovrebbe ricevere senza problemi dato che ha un thread che se ne occupa
 
+        stack_push(&(server.array[target_pos]->notifies), toSend);
+
         if(server.array[target_pos]->isConnected)
         {
             //gli mando la toSend.notify
+            sendto(UDP_sock, toSend.notify, strlen(toSend.notify), 0, (struct sockaddr*)&(server.array[target_pos]->address), (socklen_t)sizeof(struct sockaddr_in));
 
         }
-    } else { 
-        //gli diciamo che ha finito lo spazio per le notifiche
-    }
+    } 
+    
+
+    
     
 
     
@@ -343,7 +347,7 @@ int read_terminator(int sock)
 //lista di tutti i messaggi tcp possibili
 //REGIS, WELCO, GOBYE, CONNE, HELLO,FRIE?, FRIE>, FRIE<, MESS?, MESS>, MESS<, FLOO>, FLOO?, 
 // LIST?, RLIST, LINUM,CONSU, SSEM>,OOLF>, EIRF>, OKIRF, NOKRF, ACKRF, FRIEN, NOFRI, NOCON
-void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port_password
+void REGIS_handler(int fd,int p, struct sockaddr_in caller) { //la sequenza di lettura e' REGIS_id_UDP-port_password
     printf("siamo al REGIS\n");
 
     if (p>MAXCLIENTS) { 
@@ -377,9 +381,16 @@ void REGIS_handler(int fd,int p) { //la sequenza di lettura e' REGIS_id_UDP-port
         cleanup(fd, infoid, infoport, NULL, NULL, true);
         return;
     }
-
     newclient->UDP_port=malloc(strlen(infoport)+1); 
     strcpy(newclient->UDP_port,infoport);
+    //---------compilo address--------------
+    
+    newclient->address.sin_family=AF_INET;
+
+    newclient->address=caller;
+
+    newclient->address.sin_port=htons(atoi(infoport));//tanto caller è una copia
+
     //---------lettura password--------------
     
     uint16_t* temp=read_password(fd);
@@ -469,6 +480,10 @@ int CONNE_handler(int sock, int p) {
         cleanup(sock, infoid, NULL, infopass, NULL,true);
         return -1;
     }
+
+    //potremmo mandare una notifica al client se ha notifiche, ma per ora evitiamo
+    
+
     cleanup(-1, infoid, NULL, infopass, NULL, true);
     return p;//qua p dovrebbe contenere la posizione del cliente attuale nell'array
 }
@@ -563,7 +578,7 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
     //controlli che sono amici
     if (!areFriends(active_pos,destinatario_pos)) { 
         printf("i due utenti non sono amici\n"); 
-        char* messaggio_non_inviato[]="MESS<+++";
+        char messaggio_non_inviato[]="MESS<+++";
         write(sock,messaggio_non_inviato,strlen(messaggio_non_inviato));
         return;
     }
@@ -604,7 +619,7 @@ void* TCP_message_handler(void* args) {
         {
             //char s;
             //read(info.activefd,&s,1);
-            REGIS_handler(info.activefd,info.pos);
+            REGIS_handler(info.activefd,info.pos, info.caller);
         }
         else if(strcmp(buf1, "CONNE")==0 )
         {
