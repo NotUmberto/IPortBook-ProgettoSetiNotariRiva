@@ -63,6 +63,7 @@ void send_UDP_notify(int UDP_sock, struct sockaddr_in caller, int active_pos, in
 
     toSend.notify=malloc(4); //[YXX]. conto anche un \0
 
+    //se ci ricordiamo usiamo sprintf
     toSend.notify[0]=(char)(48+notify_type); //48 in ascii è 0. 
 
     notifyAndFlux* top=stack_top(&(server.array[target_pos]->notifies));
@@ -110,6 +111,8 @@ void send_UDP_notify(int UDP_sock, struct sockaddr_in caller, int active_pos, in
             //gli mando la toSend.notify
 
         }
+    } else { 
+        //gli diciamo che ha finito lo spazio per le notifiche
     }
     
 
@@ -540,8 +543,37 @@ void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) {
     return;
 }
 
-void MESSAGE_handler() { 
+void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
     printf("siamo al MESSAGE_handler\n");
+
+    //MESS? ID MESS+++
+
+    char* destinatario_id=read_id(sock);
+    
+    //controlli che l'utente esista
+    if (search_user_id(destinatario_id)==-1) { 
+        printf("utente destinatario non esistente\n");
+        char messaggio_non_inviato[]="MESS<+++";
+        write(sock,messaggio_non_inviato,strlen(messaggio_non_inviato));
+        return;
+    }
+    char* messaggio=read_mess(sock);
+    int destinatario_pos=search_user_id(destinatario_id);
+
+    //controlli che sono amici
+    if (!areFriends(active_pos,destinatario_pos)) { 
+        printf("i due utenti non sono amici\n"); 
+        char* messaggio_non_inviato[]="MESS<+++";
+        write(sock,messaggio_non_inviato,strlen(messaggio_non_inviato));
+        return;
+    }
+    //se lo sono devo aggiungere il messaggio alla struttura dati del destinatario
+
+    
+    //e aggiungo la notifica 3XX all'elenco dei flussi del destinatario
+
+    //altrimenti invio MESS<+++
+
     return;
 }
 //ecc ecc
@@ -585,7 +617,7 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "MESS?")==0)
         {
-            MESSAGE_handler();
+            MESSAGE_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "FLOO?")==0)
         {
