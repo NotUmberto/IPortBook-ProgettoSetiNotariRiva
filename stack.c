@@ -37,3 +37,14 @@ notifyAndFlux* stack_pop(Stack* s)
     return ret;
 }
 
+notifyAndFlux* stack_top(Stack* s)
+{
+    notifyAndFlux* ret;
+    ret=NULL;
+    if(*s!=NULL)
+    {
+        ret=malloc(sizeof(notifyAndFlux));
+        *ret=(*s)->payload;
+    }
+    return ret;
+}

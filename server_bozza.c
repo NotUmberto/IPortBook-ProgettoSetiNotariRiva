@@ -23,7 +23,7 @@ int main() {
     struct sockaddr_in my_sockaddr;
 
     int ok=1;
-    setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&ok,sizeof(ok));
+    setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&ok,sizeof(ok));//strano, non dobbiamo fare broadcast
 
     my_sockaddr.sin_family=AF_INET;
     my_sockaddr.sin_port=htons(4242);

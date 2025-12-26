@@ -11,6 +11,7 @@
 #include <endian.h>
 #include "server_code.h"
 
+
 volatile struct registered_users server;
 
 pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
@@ -30,11 +31,89 @@ void cleanup(int fd,char* infoid, char* infoport, uint16_t* infopass, char* info
     if(release_lock)pthread_mutex_unlock(&lock);
 }
 
-//per mandare una notifica. sia se l'utente è online, sia se non lo è, immagazzino le informazioni(flusso e notifica) in una struttura dati opportuna. se l'utente target è online effettivamente gli mando la notifica, altrimenti no. inoltre alla fine del CONNE bisognerebbe mandare l'ultima notifica, se l'utente ne ha ancora da leggere. per quanto riguarda la struttura dati da usare. uno stack sarebbe perfetto perchè gestirebbe anche l'incremento e il decremento del numero delle notifiche rimanenti. magari lo implementiamo come una lista collegata semplicissima e operiamo sempre sulla testa
-void send_UDP_notify(int UDP_sock, struct sockaddr_in caller, int active_pos, int notify_type)
+int pow(int b,int e) //non ho incluso math.h perchè il linker si arrabbiava. 
 {
+    int ret=1;
+    if(e>0)
+    {
+        for(int i=0;i<e;i++)
+        {
+            ret=ret*b;
+        }
+    }
+    return ret;
+}
+
+//per mandare una notifica. sia se l'utente è online, sia se non lo è, immagazzino le informazioni(flusso e notifica) in una struttura dati opportuna. se l'utente target è online effettivamente gli mando la notifica, altrimenti no. inoltre alla fine del CONNE bisognerebbe mandare l'ultima notifica, se l'utente ne ha ancora da leggere. per quanto riguarda la struttura dati da usare. uno stack sarebbe perfetto perchè gestirebbe anche l'incremento e il decremento del numero delle notifiche rimanenti. magari lo implementiamo come una lista collegata semplicissima e operiamo sempre sulla testa
+
+//flux deve terminare con \0.
+void send_UDP_notify(int UDP_sock, struct sockaddr_in caller, int active_pos, int target_pos, int notify_type, char* flux)
+{
+    if(notify_type<0 || notify_type>4)
+    {
+        printf("send_UDP_notify():notify_type illegale\n");
+    }
+    notifyAndFlux toSend;
+    toSend.flux=NULL;
+    toSend.notify=NULL;
+
+    toSend.flux=malloc(strlen(flux)+1);
+    toSend.flux[0]='\0';
+    strcpy(toSend.flux, flux);
+
+    toSend.notify=malloc(4); //[YXX]. conto anche un \0
+
+    toSend.notify[0]=(char)(48+notify_type); //48 in ascii è 0. 
+
+    notifyAndFlux* top=stack_top(&(server.array[target_pos]->notifies));
+
+
+    int converted=0;
+
+    for(int i=1;i<3;i++)
+    {
+        if(48<=top->notify[i] && top->notify[i]<=57)
+        {
+            converted+=(top->notify[i]-48)*pow(16, i-1);
+        }
+        else if(65<=top->notify[i] && top->notify[i]<=70)
+        {
+            converted+=((top->notify[i]-65)+10)*pow(16, i-1);
+        }
+    }
     
-    //caller.sin_port=server.array[active_pos]->;
+    if(converted<255)
+    {
+        converted++;
+        //lo riconverto in una stringa. qua posso usare un algoritmo semplificato
+
+        int digits[2]={converted%16 , (int)(converted/16)};
+        for(int i=0;i<2;i++)
+        {
+            if(0<=digits[i] && digits[i]<=9)
+            {
+                toSend.notify[1+i]=(char)(48+digits[i]);
+            }
+            else
+            {
+                toSend.notify[1+i]=(char)((digits[i]-10)+65);
+            }
+        }
+        toSend.notify[3]='\0';
+
+        //ora abbiamo completato l'inizializzazione di toSend. 
+
+        //in tutti i casi mettiamo toSend nello stack. se il cliente è online gli mandiamo una notifica udp che dovrebbe ricevere senza problemi dato che ha un thread che se ne occupa
+
+        if(server.array[target_pos]->isConnected)
+        {
+            //gli mando la toSend.notify
+
+        }
+    }
+    
+
+    
 }
 
 //ritorna la posizione di id nell'array dei clienti. se non esiste ritorna -1

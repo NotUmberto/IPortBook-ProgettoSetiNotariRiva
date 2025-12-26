@@ -15,3 +15,5 @@ typedef struct cell* Stack;
 void stack_push(Stack* s, notifyAndFlux element);
 
 notifyAndFlux* stack_pop(Stack* s);
+
+notifyAndFlux* stack_top(Stack* s);
