@@ -24,6 +24,15 @@ void HELLO_handler() {
     return;
 }
 
+void MESS_handler() { 
+    printf("Messaggio consegnato con successo\n");
+    return;
+}
+
+void NO_MESS_handler() { 
+    printf("Messaggio non consegnato\n");
+    return;
+}
 void TCP_message_handler(int sockfd)
 {
     int buf1_size=9; //vanno letti anche i 3+ altrimenti te li ritrovi nel prossimo messaggio
@@ -64,9 +73,11 @@ void TCP_message_handler(int sockfd)
         }
         else if(strcmp(buf1, "MESS>+++")==0)
         {
+          MESS_handler(); //purtroppo non possiamo usare > nel nome della funzione
         }
         else if(strcmp(buf1, "MESS<+++")==0)
         {
+          NO_MESS_handler(); //purtroppo non possiamo usare < nel nome della funzione
         }
         else if(strcmp(buf1, "FLOO>+++")==0)
         {

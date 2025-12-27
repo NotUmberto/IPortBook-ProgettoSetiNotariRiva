@@ -575,7 +575,17 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
     //MESS? ID MESS+++
 
     char* destinatario_id=read_id(sock);
+    char* messaggio=read_mess(sock);
+    int destinatario_pos=search_user_id(destinatario_id); 
     
+    //controlliamo che non siamo noi stessi
+    if (active_pos==destinatario_pos) { 
+        printf("impossibile mandare messaggi a se stessi\n");
+        char messaggio_non_inviato[]="MESS<+++";
+        write(sock,messaggio_non_inviato,strlen(messaggio_non_inviato));
+        return;
+    }
+
     //controlli che l'utente esista
     if (search_user_id(destinatario_id)==-1) { 
         printf("utente destinatario non esistente\n");
@@ -583,22 +593,35 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
         write(sock,messaggio_non_inviato,strlen(messaggio_non_inviato));
         return;
     }
-    char* messaggio=read_mess(sock);
-    int destinatario_pos=search_user_id(destinatario_id);
+
 
     //controlli che sono amici
-    if (!areFriends(active_pos,destinatario_pos)) { 
+    /*if (!areFriends(active_pos,destinatario_pos)) { 
         printf("i due utenti non sono amici\n"); 
         char messaggio_non_inviato[]="MESS<+++";
         write(sock,messaggio_non_inviato,strlen(messaggio_non_inviato));
         return;
-    }
+    }*/
     //se lo sono devo aggiungere il messaggio alla struttura dati del destinatario
+    //e mando la notifica 3XX
 
+    //creo la notifica formata da: Tipo id_mittente messaggio
+    char destinatario_flux[6+9+strlen(messaggio)+1]; //6 per "MESS> ", 9 per id mittente, il messaggio, 1 per \0
     
-    //e aggiungo la notifica 3XX all'elenco dei flussi del destinatario
+    sprintf(destinatario_flux,"MESS> %s %s\n",server.array[active_pos]->id,messaggio);
+    printf("sto mandando il messaggio:\n%s\n",destinatario_flux);
+    send_UDP_notify(UDP_sock, active_pos, destinatario_pos, 3, destinatario_flux);
+    char messaggio_inviato[]="MESS>+++";
+    write(sock,messaggio_inviato,strlen(messaggio_inviato));
 
-    //altrimenti invio MESS<+++
+    //per debug ora stampiamo il top della pila delle notifiche del destinatario
+    notifyAndFlux* temptop=stack_top(&(server.array[destinatario_pos]->notifies));
+    if (temptop==NULL) { 
+        printf("temptop e' NULL\n");
+    } else { 
+        printf("temptop->notify: %s\n",temptop->notify);
+        printf("temptop->flux: %s\n",temptop->flux);
+    }
 
     return;
 }
