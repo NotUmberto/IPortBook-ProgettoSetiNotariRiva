@@ -15,7 +15,7 @@ typedef struct package* Package; //per i puntatori
 
 typedef struct client {
     bool isConnected;
-    bool flood;//per gestire i flood. come fosse visited nei grafi
+    bool flooded;//per gestire i flood. come fosse visited nei grafi
     char* id;//sarà un array di 8 char
     char* UDP_port;//<9999
     unsigned password; //tra 0 e 65535

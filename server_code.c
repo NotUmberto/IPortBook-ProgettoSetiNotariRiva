@@ -627,6 +627,53 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
 }
 //ecc ecc
 
+void FLOOD_sender(int sender_pos,int friend_pos, int UDP_sock, char* messaggio) { 
+    //scorro tutta la lista degli amici di friend_pos
+    for (unsigned i=0;i<server.array[friend_pos]->friendNumber;i++) { 
+        int dest_pos=-1;
+        dest_pos=search_user_id(server.array[friend_pos]->friends[i]->id);
+        if (dest_pos==-1) { 
+            printf("utente amico non trovato nel server\n");
+        }
+
+        if (server.array[dest_pos]->flooded==false) { 
+            server.array[dest_pos]->flooded=true;
+            //creo la notifica formata da: Tipo id_mittente messaggio
+            char flood_flux[6+9+strlen(messaggio)+1]; //6 per "FLOO> ", 9 per id mittente, il messaggio, 1 per \0
+            sprintf(flood_flux,"FLOO> %s %s\n",server.array[sender_pos]->id,messaggio);
+            printf("sto mandando il flood:\n%s\n",flood_flux);
+            send_UDP_notify(UDP_sock, sender_pos, dest_pos, 4, flood_flux);
+            //richiamo la funzione su dest_pos
+            if (dest_pos!=sender_pos) { 
+                FLOOD_sender(sender_pos, dest_pos, UDP_sock, messaggio);
+            } else {
+                //per DEBUG 
+                printf("evito di richiamare FLOOD_sender su se stesso\n");
+            }
+        }
+    }
+}
+
+void FLOOD_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
+    printf("siamo al FLOOD_handler\n");
+    //FLOO? mess+++
+
+    //prendiamo il messaggio
+    char* messaggio=read_mess(sock);
+    printf("messaggio di flood ricevuto: %s\n", messaggio);
+
+    //chiamiamo una funzione che scorra la lista e si richiami
+    FLOOD_sender(active_pos, active_pos, UDP_sock, messaggio); //alla prima chiamata il flood avviene su se stessi
+    //non usiamo la stessa funzione FLOOD_handler
+
+    //azzeriamo il bit flood di tutti
+    //scorro tutto il server e li azzero tutti
+    for (unsigned i=0;i<server.number;i++) { 
+        server.array[i]->flooded=false;
+    }
+    return;
+}
+
 //gestisce il cliente a seconda di quello che ha mandato. gli args dovranno includere almeno il sockfd per comunicare in tcp col cliente. probabilmente andranno anche inclusi i campi del chiamante compilati da accept() cosi da usarli in REGIS_handler() direi.
 void* TCP_message_handler(void* args) {
     struct package info=*((struct package*)args);
@@ -670,7 +717,7 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "FLOO?")==0)
         {
-            
+            FLOOD_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "LIST?")==0)
         {
