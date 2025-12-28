@@ -642,9 +642,9 @@ void FLOOD_sender(int sender_pos,int friend_pos, int UDP_sock, char* messaggio) 
             char flood_flux[6+9+strlen(messaggio)+1]; //6 per "FLOO> ", 9 per id mittente, il messaggio, 1 per \0
             sprintf(flood_flux,"FLOO> %s %s\n",server.array[sender_pos]->id,messaggio);
             printf("sto mandando il flood:\n%s\n",flood_flux);
-            send_UDP_notify(UDP_sock, sender_pos, dest_pos, 4, flood_flux);
             //richiamo la funzione su dest_pos
             if (dest_pos!=sender_pos) { 
+                send_UDP_notify(UDP_sock, sender_pos, dest_pos, 4, flood_flux);
                 FLOOD_sender(sender_pos, dest_pos, UDP_sock, messaggio);
             } else {
                 //per DEBUG 
