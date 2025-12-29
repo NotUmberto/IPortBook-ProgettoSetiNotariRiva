@@ -135,7 +135,7 @@ void *ListenNotify(void *port) {
       if (size < 3)
         printf("ERRORE size=%d\n", size);
       mex[size] = '\0';
-      printf("Ricevuto: %s\n", mex);
+      printf("Nuova notifica: %s\n", mex);
     }
   }
   close(sock);

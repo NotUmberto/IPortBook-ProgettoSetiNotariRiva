@@ -370,6 +370,13 @@ void REGIS_handler(int fd,int p, struct sockaddr_in caller) { //la sequenza di l
     if(infoid==NULL)return;//non stampo niente perchè lo fa gia la read_...(fd) di turno
     printf("id ricevuto: %s\n", infoid);
 
+    if(search_user_id(infoid)!=-1)
+    {
+        printf("ID già in uso\n");
+        cleanup(fd, infoid, NULL, NULL, NULL, true);
+        return;
+    }
+
     //printf("lunghezza di infoid -%s- %ld\n",infoid,strlen(infoid));
     newclient->id=malloc(strlen(infoid)+1); 
     strcpy(newclient->id,infoid);
@@ -538,6 +545,7 @@ void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) {
     //controlliamo se l'id esiste
     int friend_pos=search_user_id(infoid);
 
+    //printf("A");
     char request_not_sent_msg[]="FRIE<+++";
     if(friend_pos==-1)//l'utente a cui vogliamo chiedere l'amicizia non esiste
     {
@@ -547,7 +555,7 @@ void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) {
     else if(friend_pos==active_pos)//l'utente vuole fare amicizia con se stesso
     {
         printf("Impossibile fare amicizia con se stessi. invio %s\n", request_not_sent_msg);
-        send_UDP_notify(UDP_sock,active_pos, friend_pos, 0, "CIAO+++");
+        //send_UDP_notify(UDP_sock,active_pos, friend_pos, 0, "CIAO+++");
         write(sock, request_not_sent_msg, strlen(request_not_sent_msg)*sizeof(char));
     }
     else if(areFriends(friend_pos, active_pos))//controlliamo se i due sono già amici
@@ -559,7 +567,17 @@ void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) {
     }
     else
     {
+        
         //mando la richiesta di amicizia e anche la notifica UDP credo. 
+        printf("Inoltro la richiesta di amicizia al destinatario. invio FRIE>+++ al mittente\n");
+        write(sock, "FRIE>+++", 8);
+
+        //EIRF> id+++
+        char* flux=malloc(5+strlen(server.array[active_pos]->id)+3); //5 per il tipo, 3 per il terminatore
+
+        sprintf(flux, "EIRF> %s+++", server.array[active_pos]->id);
+
+        send_UDP_notify(UDP_sock, active_pos, friend_pos, 0, flux);
 
         
     }
@@ -725,7 +743,8 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "CONSU")==0)
         {
-            
+            //OKIRF e NOKRF penso debbano essere gestite a stretto contatto con CONSU. potremmo forse gestire questi 2 casi direttamente nel CONSU, obbligando l'utente a dire si o no ad una richiesta di amicizia, una volta che l'ha letta con CONSU. 
+            //oppure si potrebbe memorizzare l'ultimo flusso letto(letteralmente salvarsi stack_pop()->flux). in questo modo si potrebbe dare all'utente la scelta di ignorare un flusso(come ad esempio una richiesta di amicizia). sarei piu propenso ad implementare quest'ultimo approccio
         }
         else if(strcmp(buf1, "OKIRF")==0)
         {
