@@ -9,8 +9,48 @@
 #include <unistd.h>
 #include <stdbool.h>
 
+
+
+//legge +++ cosi esauriamo completamente il messaggio corrente e non rimangono rimasugli del messaggio precedente 
+int read_terminator(int sock)
+{
+    //per terminare la lettura del comando
+    char terminatore[3];
+    int byte_letti=read(sock, terminatore, 3);
+    if(byte_letti<3)
+    {
+        printf("errore read_terminator():Formato del comando non standard\n");
+        return -1;
+    }
+    return 0;
+}
+
+char* read_id(int sock)
+{
+    int buf1_size=9; //tengo conto anche di un \0
+    char* buf1=malloc(buf1_size*sizeof(char));
+    read(sock, buf1, 1);//tolgo lo spazio
+    if(buf1[0]!=' ')
+    {
+            printf("errore read_id(): l'assunzione secondo la quale il primo carattere letto deve essere uno spazio è stata infranta\n");
+            free(buf1);
+            return NULL;
+    }
+    int byte_letti=read(sock, buf1, buf1_size-1);
+    if(byte_letti<buf1_size-1)
+    {
+        printf("errore read_id(): campo non standard\n");
+        free(buf1);
+        return NULL;
+    }
+    buf1[byte_letti]='\0';
+    return buf1;
+}
+
+
 void WELCO_handler() { 
     printf("Benvenuto! la connessione ha avuto successo\n");
+    
     return;
 }
 
@@ -33,11 +73,36 @@ void NO_MESS_handler() {
     printf("Messaggio non consegnato\n");
     return;
 }
+
+void RLIST_handler(int sock)
+{
+  char* num=malloc(4*sizeof(char));
+  char spazio='a';
+  read(sock, &spazio,1);
+  if(spazio!=' ')
+  {
+    printf("RLIST_handler: comando non standard\n");
+  }
+  read(sock, num, 3);
+  printf("numero di utenti registrati nel server: %s\n", num);
+  free(num);
+  return;
+}
+
+void LINUM_handler(int sock)
+{
+  char* infoid=read_id(sock);
+  printf("%s\n",infoid);
+  free(infoid);
+  return;
+}
+
 void TCP_message_handler(int sockfd)
 {
-    int buf1_size=9; //vanno letti anche i 3+ altrimenti te li ritrovi nel prossimo messaggio
-    char* buf1=malloc(buf1_size*sizeof(char));
-    buf1[buf1_size-1]='\0'; 
+    //i 3 + vanno letti a parte alla fine di ogni handler. leggerli all'inizio ha dato problemi con LIST_handler
+    int buf1_size=6; //5 per il tipo di comando, 1 per \0
+    char* buf1=malloc((buf1_size+1)*sizeof(char));
+    buf1[0]='\0'; 
 
     
         printf("sto per leggere il messaggio\n");
@@ -51,69 +116,82 @@ void TCP_message_handler(int sockfd)
           return;
         }*/
         
-        if(strcmp(buf1, "WELCO+++")==0)
+        if(strcmp(buf1, "WELCO")==0)
         {
             WELCO_handler();
         }
-        else if(strcmp(buf1, "GOBYE+++")==0)
+        else if(strcmp(buf1, "GOBYE")==0)
         {
             GOBYE_handler();
             exit(0);
         }
-        else if(strcmp(buf1, "HELLO+++")==0)
+        else if(strcmp(buf1, "HELLO")==0)
         {
             HELLO_handler();
         }
-        else if(strcmp(buf1, "FRIE>+++")==0)
+        else if(strcmp(buf1, "FRIE>")==0)
         {
+          printf("Richiesta di amicizia mandata\n");
         }
-        else if(strcmp(buf1, "FRIE<+++")==0)
+        else if(strcmp(buf1, "FRIE<")==0)
         {
-            printf("Richiesta non mandata\n");
+            printf("Richiesta di amicizia non mandata\n");
         }
-        else if(strcmp(buf1, "MESS>+++")==0)
+        else if(strcmp(buf1, "MESS>")==0)
         {
           MESS_handler(); //purtroppo non possiamo usare > nel nome della funzione
         }
-        else if(strcmp(buf1, "MESS<+++")==0)
+        else if(strcmp(buf1, "MESS<")==0)
         {
           NO_MESS_handler(); //purtroppo non possiamo usare < nel nome della funzione
         }
-        else if(strcmp(buf1, "FLOO>+++")==0)
+        else if(strcmp(buf1, "FLOO>")==0)
         {
         }
-        else if(strcmp(buf1, "RLIST+++")==0)
+        else if(strcmp(buf1, "RLIST")==0)
+        {
+          RLIST_handler(sockfd);
+        }
+        else if(strcmp(buf1, "LINUM")==0)
+        {
+          LINUM_handler(sockfd);
+        }
+        else if(strcmp(buf1, "SSEM>")==0)
         {
         }
-        else if(strcmp(buf1, "LINUM+++")==0)
+        else if(strcmp(buf1, "OOLF>")==0)
         {
         }
-        else if(strcmp(buf1, "SSEM>+++")==0)
+        else if(strcmp(buf1, "EIRF>")==0)
         {
         }
-        else if(strcmp(buf1, "OOLF>+++")==0)
+        else if(strcmp(buf1, "ACKRF")==0)
         {
         }
-        else if(strcmp(buf1, "EIRF>+++")==0)
+        else if(strcmp(buf1, "FRIEN")==0)
         {
         }
-        else if(strcmp(buf1, "ACKRF+++")==0)
+        else if(strcmp(buf1, "NOFRI")==0)
         {
         }
-        else if(strcmp(buf1, "FRIEN+++")==0)
-        {
-        }
-        else if(strcmp(buf1, "NOFRI+++")==0)
-        {
-        }
-        else if(strcmp(buf1, "NOCON+++")==0)
+        else if(strcmp(buf1, "NOCON")==0)
         {
         }
         else 
         {
             printf("messaggio sconosciuto\n");
             close(sockfd);
+            return;
         }
+        
+
+        if(read_terminator(sockfd)==-1)
+        {
+            printf("Comando non standard\n");
+            close(sockfd);
+            return;
+        }
+
         return;
 }
 

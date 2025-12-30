@@ -487,7 +487,7 @@ int CONNE_handler(int sock, int p) {
 
     if(read_terminator(sock)==-1)
     {
-        cleanup(sock, infoid, NULL, infopass, NULL,true);
+        cleanup(-1, infoid, NULL, infopass, NULL,true);
         return -1;
     }
 
@@ -573,7 +573,7 @@ void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) {
         write(sock, "FRIE>+++", 8);
 
         //EIRF> id+++
-        char* flux=malloc(5+strlen(server.array[active_pos]->id)+3); //5 per il tipo, 3 per il terminatore
+        char* flux=malloc((5+strlen(server.array[active_pos]->id)+3+1+1)*sizeof(char)); //5 per il tipo, strlen(...) dovrebbe essere sempre 8, 3 per il terminatore, 1 per lo spazio, 1 per \0
 
         sprintf(flux, "EIRF> %s+++", server.array[active_pos]->id);
 
@@ -582,7 +582,11 @@ void FRIEND_REQUEST_handler(int sock, int active_pos, int UDP_sock) {
         
     }
 
-    read_terminator(sock);
+    if(read_terminator(sock)==-1)
+    {
+        cleanup(-1, infoid, NULL, NULL, NULL,true);
+        return;
+    }
     free(infoid);
     return;
 }
@@ -692,6 +696,56 @@ void FLOOD_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
     return;
 }
 
+void LIST_handler(int sock)
+{
+    printf("A\n");
+    pthread_mutex_lock(&lock);
+    //prima mandiamo RLIST num-item+++ num-item è sempre 3 caratteri
+    char* RLIST_num_item=malloc(13*sizeof(char));//5 per tipo, uno per spazio, 3 per num-item, 3 per il terminatore, uno per \0
+    char* num_item=malloc(4*sizeof(char));
+    char* LINUM=malloc(18*sizeof(char));//5 per il tipo, uno per lo spazio, 8 per l'id, 3 per il temrinatore, uno per \0
+    if(RLIST_num_item==NULL || num_item==NULL || LINUM==NULL)
+    {
+        printf("LIST_handler: Problema di allocazione memoria");
+        if(RLIST_num_item!=NULL)free(RLIST_num_item);
+        if(num_item!=NULL)free(num_item);
+        if(LINUM!=NULL)free(LINUM);
+        cleanup(sock, NULL,NULL,NULL,NULL, true);
+        return;
+    }
+    
+    sprintf(num_item,"%d", server.number);
+    if(strlen(num_item)==1)
+    {
+        sprintf(num_item, "00%d", server.number);
+    }
+    else if(strlen(num_item)==2)
+    {
+        sprintf(num_item, "0%d", server.number);
+    }
+    sprintf(RLIST_num_item,"RLIST %s+++", num_item);
+    write(sock, RLIST_num_item, strlen(RLIST_num_item));
+    
+    for(int i=0;i<server.number;i++)
+    {
+        //invio LINUM id+++
+        sprintf(LINUM,"LINUM %s+++", server.array[i]->id);
+        write(sock, LINUM, strlen(LINUM));
+        printf("mandato %s\n", LINUM);
+    }
+    free(LINUM);
+    free(RLIST_num_item);
+    free(num_item);
+    if(read_terminator(sock)==-1)
+    {
+        cleanup(-1, NULL, NULL, NULL, NULL,true);
+        return;
+    }
+    pthread_mutex_unlock(&lock);
+    printf("B\n");
+    return;
+}
+
 //gestisce il cliente a seconda di quello che ha mandato. gli args dovranno includere almeno il sockfd per comunicare in tcp col cliente. probabilmente andranno anche inclusi i campi del chiamante compilati da accept() cosi da usarli in REGIS_handler() direi.
 void* TCP_message_handler(void* args) {
     struct package info=*((struct package*)args);
@@ -739,7 +793,7 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "LIST?")==0)
         {
-            
+            LIST_handler(info.activefd);
         }
         else if(strcmp(buf1, "CONSU")==0)
         {
