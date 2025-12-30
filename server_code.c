@@ -598,7 +598,20 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
 
     char* destinatario_id=read_id(sock);
     char* messaggio=read_mess(sock);
+    
+    printf("A\n");
+
+    //controllo che il messaggio non superi i 200 caratteri
+    /*if (strlen(messaggio)>200) { 
+        printf("messaggio troppo lungo\n");
+        char messaggio_non_inviato[]="MESS<+++";
+        write(sock,messaggio_non_inviato,strlen(messaggio_non_inviato));
+        return;
+    }*/
+
     int destinatario_pos=search_user_id(destinatario_id); 
+    
+    printf("B\n");
     
     //controlliamo che non siamo noi stessi
     if (active_pos==destinatario_pos) { 
@@ -608,6 +621,8 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
         return;
     }
 
+    printf("C\n");
+
     //controlli che l'utente esista
     if (search_user_id(destinatario_id)==-1) { 
         printf("utente destinatario non esistente\n");
@@ -616,6 +631,7 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
         return;
     }
 
+    printf("D\n");
 
     //controlli che sono amici
     /*if (!areFriends(active_pos,destinatario_pos)) { 
@@ -636,6 +652,8 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
     char messaggio_inviato[]="MESS>+++";
     write(sock,messaggio_inviato,strlen(messaggio_inviato));
 
+    printf("E\n");
+
     //per debug ora stampiamo il top della pila delle notifiche del destinatario
     notifyAndFlux* temptop=stack_top(&(server.array[destinatario_pos]->notifies));
     if (temptop==NULL) { 
@@ -647,7 +665,6 @@ void MESSAGE_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
 
     return;
 }
-//ecc ecc
 
 void FLOOD_sender(int sender_pos,int friend_pos, int UDP_sock, char* messaggio) { 
     //scorro tutta la lista degli amici di friend_pos
@@ -680,6 +697,11 @@ void FLOOD_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
     printf("siamo al FLOOD_handler\n");
     //FLOO? mess+++
 
+    if (server.array[active_pos]->friendNumber==0) { 
+        printf("utente senza amici :(\n");
+        return;
+    }
+
     //prendiamo il messaggio
     char* messaggio=read_mess(sock);
     printf("messaggio di flood ricevuto: %s\n", messaggio);
@@ -687,6 +709,10 @@ void FLOOD_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
     //chiamiamo una funzione che scorra la lista e si richiami
     FLOOD_sender(active_pos, active_pos, UDP_sock, messaggio); //alla prima chiamata il flood avviene su se stessi
     //non usiamo la stessa funzione FLOOD_handler
+
+    //inviamo FLOO>+++ al mittente
+    char flood_inviato[]="FLOO>+++";
+    write(sock,flood_inviato,strlen(flood_inviato));
 
     //azzeriamo il bit flood di tutti
     //scorro tutto il server e li azzero tutti
@@ -746,6 +772,86 @@ void LIST_handler(int sock)
     return;
 }
 
+void CONSU_handler(int sock, int active_pos, int UDP_sock) { 
+    printf("siamo al CONSU_handler\n");
+    //CONSU+++
+    
+    //dobbiamo controllare se ha scritto i 3 +++ alla fine. lo facciamo con read_terminator
+    if(read_terminator(sock)==-1) { 
+        printf("errore nel leggere il terminatore\n");
+        cleanup(-1, NULL, NULL, NULL, NULL,true);
+        return;
+    }
+
+    notifyAndFlux* top=stack_pop(&(server.array[active_pos]->notifies));
+    
+    //se non ci sono notifiche
+    if (top==NULL) { 
+        printf("nessuna notifica da leggere\n");
+        char no_notification_msg[]="NOCON+++";
+        write(sock,no_notification_msg,strlen(no_notification_msg));
+        return;
+    }    
+    
+    printf("notifica prelevata dallo stack\n");
+    printf("top->notify: %s\n",top->notify);
+    printf("top->flux: %s\n",top->flux);
+
+    //se proviene da un messaggio
+    //SSEM> id mess+++
+    if (top->notify[0]=='3') {
+        printf("notifica di tipo MESS\n");
+        //la notifica di tipo messaggio arriva come: MESS> id mess+++
+
+        //leggiamo le varie parti del flusso
+        //sposto le prime 6 posizioni da top->flux (MESS> )
+        char prefix[7];
+        strncpy(prefix, top->flux, 6);
+        prefix[6]='\0';
+        
+        char consu_id[9];
+        strncpy(consu_id, top->flux+6, 8);
+        consu_id[8]='\0';
+        printf("id del mittente del messaggio: %s\n", consu_id);
+
+        char *consu_msg=malloc((strlen(top->flux)-6-8+1)); //tot-id-MESS> +1 per \0
+        strcpy(consu_msg, top->flux+6+8);
+        printf("messaggio da consegnare: %s\n", consu_msg);
+        //non controllo che il messaggio superi i 200 caratteri perche' tanto lo abbiamo gia' fatto in MESSAGE_handler
+
+        char ssem_msg[6+8+strlen(consu_msg)+3+1]; //6 per SSEM> , 8 per id, il messaggio, 3 per +++, 1 per \0
+
+        sprintf(ssem_msg,"SSEM> %s %s+++", consu_id, consu_msg);
+        printf("sto per mandare al client il messaggio:\n%s\n", ssem_msg);
+        write(sock, ssem_msg, strlen(ssem_msg));
+    }
+
+
+    //se proviene da un flood
+    //OOLF> id mess+++
+    else if (top->notify[0]=='4') { 
+        printf("notifica di tipo FLOOD\n");
+        return;
+    }
+
+
+    //se proviene da una richiesta di amicizia
+    //EIRF> id+++
+    else if (top->notify[0]=='0') { 
+        printf("notifica di tipo FRIEND REQUEST\n");
+        return; 
+    }
+
+    //se si tratta di una accettazione o rifiuto di una richiesta di amicizia
+    else if (top->notify[0]=='1' || top->notify[0]=='2') { 
+        printf("notifica di tipo FRIEND RESPONSE\n");
+        return; 
+    } else { 
+        printf("notifica di tipo sconosciuto\n");
+        return; 
+    }
+}
+
 //gestisce il cliente a seconda di quello che ha mandato. gli args dovranno includere almeno il sockfd per comunicare in tcp col cliente. probabilmente andranno anche inclusi i campi del chiamante compilati da accept() cosi da usarli in REGIS_handler() direi.
 void* TCP_message_handler(void* args) {
     struct package info=*((struct package*)args);
@@ -797,8 +903,12 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "CONSU")==0)
         {
+            CONSU_handler(info.activefd, active_pos, UDP_sock);
+
             //OKIRF e NOKRF penso debbano essere gestite a stretto contatto con CONSU. potremmo forse gestire questi 2 casi direttamente nel CONSU, obbligando l'utente a dire si o no ad una richiesta di amicizia, una volta che l'ha letta con CONSU. 
             //oppure si potrebbe memorizzare l'ultimo flusso letto(letteralmente salvarsi stack_pop()->flux). in questo modo si potrebbe dare all'utente la scelta di ignorare un flusso(come ad esempio una richiesta di amicizia). sarei piu propenso ad implementare quest'ultimo approccio
+
+            //scusa ma ignorando un flusso come faccio poi a mandare OKIRF o NOKRF? non starei perdendo la possibilità di rispondere a quella richiesta? sulla consegna c'e' scritto che una volta cancellato dal consu il flusso e' perso. secondo me bisognerebbe togliere OKIRF e NOKRF e far gestire tutto a CONSU subito dopo aver letto una notifica
         }
         else if(strcmp(buf1, "OKIRF")==0)
         {
