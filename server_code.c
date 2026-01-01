@@ -843,6 +843,7 @@ void CONSU_handler(int sock, int active_pos, int UDP_sock) {
         consu_id[8]='\0';
         printf("id del mittente del flood: %s\n", consu_id);
 
+        //puntatore perche la lunghezza del messaggio e' variabile
         char *consu_msg=malloc((strlen(top->flux)-6-8+1)); //tot-id-MESS> +1 per \0
         strcpy(consu_msg, top->flux+6+8);
         printf("messaggio di flood da consegnare: %s\n", consu_msg);
@@ -860,13 +861,104 @@ void CONSU_handler(int sock, int active_pos, int UDP_sock) {
     //EIRF> id+++
     else if (top->notify[0]=='0') { 
         printf("notifica di tipo FRIEND REQUEST\n");
+        //nota: secondo me la notifica a chi dovrebbe arrivare non dovrebbe arrivare come EIRF> id+++, ma come FRIEN id+++. 
+        //perche' EIRF dovrebbe mandarlo il server a chi consulta
+
+        char prefix[7];
+        strncpy(prefix, top->flux, 6);
+        prefix[6]='\0';
+
+        char consu_id[9];
+        strncpy(consu_id, top->flux+6, 8);
+        consu_id[8]='\0';
+        printf("id del mittente della richiesta di amicizia: %s\n", consu_id);
+
+        char eirf_flux[6+8+3+1]; //6 per EIRF> , 8 per id, 3 per +++, 1 per \0
+        sprintf(eirf_flux,"EIRF> %s+++", consu_id);
+        printf("sto per mandare al client la richiesta di amicizia:\n%s\n", eirf_flux);
+        write(sock, eirf_flux, strlen(eirf_flux));
+
+        //adesso leggiamo se abbiamo ricevuto OKIRF o NOKRF
+        char response_buf[9]; //8 per OKIRF/NOKRF + 1 per \0
+        int val=read(sock, response_buf, 9); //OKIRF+++ o NOKRF+++ e poi il terminatore
+        response_buf[val]='\0';
+        printf("risposta ricevuta dal client: %s\n", response_buf);
+        
+        if (strcmp(response_buf, "OKIRF+++")==0) { 
+            //rispondiamo con ACKRF+++
+            //aggiungiamo l'amico alla lista amici di entrambi
+            //mandiamo la notifica UDP 1XX a chi ha inviato la richiesta di amicizia
+            char ackrf_msg[]="ACKRF+++";
+            write(sock, ackrf_msg, strlen(ackrf_msg));
+
+            int friend_pos=search_user_id(consu_id);
+            addfriend(active_pos, friend_pos);
+            addfriend(friend_pos, active_pos);
+
+            char friend_flux[6+8+1]; //6 per FRIEN, 8 per id, 1 per \0
+            sprintf(friend_flux, "FRIEN %s", server.array[active_pos]->id);
+            send_UDP_notify(UDP_sock, active_pos, friend_pos, 1, friend_flux); 
+            //la consegna non dice nulla sul flusso. ci mettiamo l'id di chi ha accettato l'amicizia 
+        } 
+        else if (strcmp(response_buf, "NOKRF+++")==0) { 
+            //rispondiamo con ACKRF+++
+            //non aggiungiamo l'amico alla lista amici di entrambi
+            //mandiamo la notifica UDP 2XX a chi ha inviato la richiesta di amicizia
+            char ackrf_msg[]="ACKRF+++";
+            write(sock, ackrf_msg, strlen(ackrf_msg));
+
+            int friend_pos=search_user_id(consu_id);
+            char nofriend_flux[6+8+1]; //6 per NOFRI, 8 per id, 1 per \0
+            sprintf(nofriend_flux, "NOFRI %s", server.array[active_pos]->id);
+            send_UDP_notify(UDP_sock, active_pos, friend_pos, 2, nofriend_flux);
+            //la consegna non dice nulla sul flusso. ci mettiamo l'id di chi ha rifiutato l'amicizia
+        } else { 
+            printf("risposta sconosciuta alla richiesta di amicizia\n");
+            return;
+        }
+
         return; 
     }
 
     //se si tratta di una accettazione o rifiuto di una richiesta di amicizia
     else if (top->notify[0]=='1' || top->notify[0]=='2') { 
         printf("notifica di tipo FRIEND RESPONSE\n");
-        return; 
+
+        //la notifica arriva come FRIEN id+++ o NOFRI id+++
+
+        //se e' 1XX allora e' un OKIRF e mandiamo FRIEN id+++
+        if (top->notify[0]=='1') { 
+            char prefix[7];
+            strncpy(prefix, top->flux, 6);
+            prefix[6]='\0';
+
+            char consu_id[9];
+            strncpy(consu_id, top->flux+6, 8);
+            consu_id[8]='\0';
+            printf("id del mittente della risposta di amicizia: %s\n", consu_id);
+
+            char frien_flux[6+8+3+1]; //6 per FRIEN , 8 per id, 3 per +++, 1 per \0
+            sprintf(frien_flux,"FRIEN %s+++", consu_id);
+            write(sock, frien_flux, strlen(frien_flux));
+            printf("mandata FRIEN al client\n");
+            return;
+        } else { 
+            //se e' 2XX allora e' un NOKRF e mandiamo NOFRI id+++
+            char prefix[7];
+            strncpy(prefix, top->flux, 6);
+            prefix[6]='\0';
+
+            char consu_id[9];
+            strncpy(consu_id, top->flux+6, 8);
+            consu_id[8]='\0';
+            printf("id del mittente della risposta di amicizia: %s\n", consu_id);
+
+            char nofri_flux[6+8+3+1]; //6 per NOFRI , 8 per id, 3 per +++, 1 per \0
+            sprintf(nofri_flux,"NOFRI %s+++",consu_id);
+            write(sock, nofri_flux, strlen(nofri_flux));
+            printf("mandata NOFRI al client\n");
+            return;
+        }
     } else { 
         printf("notifica di tipo sconosciuto\n");
         return; 

@@ -198,6 +198,56 @@ void OOLF_handler(int sock) {
     return;
 }
 
+void EIRF_handler(int sock) { 
+    char* infoid=read_id(sock);
+    read_terminator(sock);
+    
+    printf("Hai ricevuto una richiesta di amicizia dall'utente: %s\n", infoid);
+    printf("Per accettare la richiesta, invia OKIRF+++\n");
+    printf("Per rifiutare la richiesta, invia NOKRF+++\n");
+
+    //leggiamo ora se l'utente accetta o rifiuta
+    char response[9]; //8 per OKIRF+++/NOKRF+++, 1 per \0
+    fgets(response, 9, stdin);
+    response[8]='\0';
+
+    //inviamo la risposta al server
+    write(sock, response, strlen(response));
+
+    //ci aspettiamo ACKRF+++ come conferma
+    char ack_buf[9]; //8 per ACKRF+++, 1 per \0
+    read(sock, ack_buf, 9);
+    ack_buf[8]='\0';
+    if (strcmp(ack_buf, "ACKRF+++")==0) { 
+      printf("Risposta alla richiesta di amicizia inviata con successo\n");
+    } else { 
+      printf("Errore nell'invio della risposta alla richiesta di amicizia\n");
+    }
+    return;
+}
+
+void FRIEN_handler(int sock) { 
+    //FRIEN id+++
+    char infoid[9];
+    read(sock, infoid, 8);
+    infoid[8]='\0';
+    read_terminator(sock);
+
+    printf("L'utente %s ha accettato la tua richiesta di amicizia\n", infoid);
+    return;
+}
+
+void NOFRI_handler(int sock) { 
+    //NOFRI id+++
+    char infoid[9];
+    read(sock, infoid, 8);
+    infoid[8]='\0';
+    read_terminator(sock);
+
+    printf("L'utente %s ha rifiutato la tua richiesta di amicizia\n", infoid);
+    return;
+}
+
 void TCP_message_handler(int sockfd)
 {
     //i 3 + vanno letti a parte alla fine di ogni handler. leggerli all'inizio ha dato problemi con LIST_handler
@@ -265,13 +315,17 @@ void TCP_message_handler(int sockfd)
         }
         else if(strcmp(buf1, "OOLF>")==0)
         {
-
+          OOLF_handler(sockfd);
+          return;
         }
         else if(strcmp(buf1, "EIRF>")==0)
         {
+          EIRF_handler(sockfd);
+          return;
         }
         else if(strcmp(buf1, "ACKRF")==0)
         {
+          //DA TOGLIERE (non arrivera' mai qui perche' ACKRF viene gestito dentro EIRF_handler)
         }
         else if(strcmp(buf1, "FRIEN")==0)
         {
