@@ -178,10 +178,23 @@ void NOCON_handler() {
 
 void SSEM_handler(int sock) { 
   //leggo SSEM> id mess+++
+  //SSEM> e' gia' stato letto nel TCP_message_handler
     printf("Hai ricevuto un messaggio!\n");
     char* infoid=read_id(sock);
     char* messaggio=read_mess(sock);
+    //i +++ sono gia' stati letti in read_mess()
     printf("Mittente: %s\nMessaggio: %s\n", infoid, messaggio);
+    return;
+}
+
+void OOLF_handler(int sock) { 
+  //leggo OOLF> id mess+++
+  //OOLF> e' gia' stato letto nel TCP_message_handler
+    printf("Hai ricevuto un messaggio di flood!\n");
+    char* infoid=read_id(sock);
+    char* messaggio=read_mess(sock);
+    //i +++ sono gia' stati letti in read_mess()
+    printf("Mittente flood: %s\nMessaggio di flood: %s\n", infoid, messaggio);
     return;
 }
 
@@ -248,10 +261,11 @@ void TCP_message_handler(int sockfd)
         else if(strcmp(buf1, "SSEM>")==0)
         {
           SSEM_handler(sockfd);
-          return;
+          return; //questo return perche' va in conflitto con l'if alla fine
         }
         else if(strcmp(buf1, "OOLF>")==0)
         {
+
         }
         else if(strcmp(buf1, "EIRF>")==0)
         {

@@ -817,7 +817,7 @@ void CONSU_handler(int sock, int active_pos, int UDP_sock) {
         char *consu_msg=malloc((strlen(top->flux)-6-8+1)); //tot-id-MESS> +1 per \0
         strcpy(consu_msg, top->flux+6+8);
         printf("messaggio da consegnare: %s\n", consu_msg);
-        //non controllo che il messaggio superi i 200 caratteri perche' tanto lo abbiamo gia' fatto in MESSAGE_handler
+        //non controllo che il messaggio superi i 200 caratteri perche' tanto lo abbiamo gia' fatto in read_mess()
 
         char ssem_msg[6+8+strlen(consu_msg)+3+1]; //6 per SSEM> , 8 per id, il messaggio, 3 per +++, 1 per \0
 
@@ -831,6 +831,27 @@ void CONSU_handler(int sock, int active_pos, int UDP_sock) {
     //OOLF> id mess+++
     else if (top->notify[0]=='4') { 
         printf("notifica di tipo FLOOD\n");
+        //la notifica di tipo flood arriva come: FLOO> id mess+++
+        //leggiamo le varie parti del flusso
+        //sposto le prime 6 posizioni da top->flux FLOO>
+        char prefix[7];
+        strncpy(prefix, top->flux, 6);
+        prefix[6]='\0';
+
+        char consu_id[9];
+        strncpy(consu_id, top->flux+6, 8);
+        consu_id[8]='\0';
+        printf("id del mittente del flood: %s\n", consu_id);
+
+        char *consu_msg=malloc((strlen(top->flux)-6-8+1)); //tot-id-MESS> +1 per \0
+        strcpy(consu_msg, top->flux+6+8);
+        printf("messaggio di flood da consegnare: %s\n", consu_msg);
+        //non controllo che il messaggio superi i 200 caratteri perche' tanto lo abbiamo gia' fatto in read_mess()
+
+        char oolf_msg[6+8+strlen(consu_msg)+3+1];
+        sprintf(oolf_msg,"OOLF> %s %s+++", consu_id, consu_msg);
+        printf("sto per mandare al client il messaggio di flood:\n%s\n", oolf_msg);
+        write(sock, oolf_msg, strlen(oolf_msg));
         return;
     }
 
