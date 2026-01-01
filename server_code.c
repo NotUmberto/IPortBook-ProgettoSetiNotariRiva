@@ -772,6 +772,14 @@ void LIST_handler(int sock)
     return;
 }
 
+void addfriend(int active_pos, int friend_pos) { 
+    //per comodita' di lettura copio il numero degli amici
+    int friendNumber=server.array[active_pos]->friendNumber;
+    server.array[active_pos]->friends[friendNumber]=server.array[friend_pos];
+    server.array[active_pos]->friendNumber++;
+    return;
+}
+
 void CONSU_handler(int sock, int active_pos, int UDP_sock) { 
     printf("siamo al CONSU_handler\n");
     //CONSU+++
