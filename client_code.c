@@ -171,8 +171,9 @@ void LINUM_handler(int sock)
   return;
 }
 
-void NOCON_handler() { 
+void NOCON_handler(int sock) { 
     printf("Nessuna notifica da leggere\n");
+    read_terminator(sock);
     return;
 }
 
@@ -207,9 +208,10 @@ void EIRF_handler(int sock) {
     printf("Per rifiutare la richiesta, invia NOKRF+++\n");
 
     //leggiamo ora se l'utente accetta o rifiuta
-    char response[9]; //8 per OKIRF+++/NOKRF+++, 1 per \0
-    fgets(response, 9, stdin);
-    response[8]='\0';
+    char response[10]; //8 per OKIRF+++/NOKRF+++, 1 per \n, 1 per \0
+    fgets(response, 10, stdin);
+
+    response[strlen(response)-1]='\0'; //tolgo il \n
 
     //inviamo la risposta al server
     write(sock, response, strlen(response));
@@ -228,6 +230,9 @@ void EIRF_handler(int sock) {
 
 void FRIEN_handler(int sock) { 
     //FRIEN id+++
+    //leggiamo prima lo spazio (regola generale)
+    char spazio;
+    read(sock, &spazio, 1); //spazio
     char infoid[9];
     read(sock, infoid, 8);
     infoid[8]='\0';
@@ -239,6 +244,9 @@ void FRIEN_handler(int sock) {
 
 void NOFRI_handler(int sock) { 
     //NOFRI id+++
+    //leggiamo prima lo spazio (regola generale)
+    char spazio;
+    read(sock, &spazio, 1); //spazio
     char infoid[9];
     read(sock, infoid, 8);
     infoid[8]='\0';
@@ -329,13 +337,18 @@ void TCP_message_handler(int sockfd)
         }
         else if(strcmp(buf1, "FRIEN")==0)
         {
+          FRIEN_handler(sockfd);
+          return;
         }
         else if(strcmp(buf1, "NOFRI")==0)
         {
+          NOFRI_handler(sockfd);
+          return;
         }
         else if(strcmp(buf1, "NOCON")==0)
         {
-          NOCON_handler();
+          NOCON_handler(sockfd);
+          return;
         }
         else 
         {

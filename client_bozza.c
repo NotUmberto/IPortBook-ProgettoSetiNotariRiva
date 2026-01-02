@@ -50,6 +50,15 @@ int main() {
         printf("puoi inviare un messaggio\n");
         fgets(buf1, buf1_size, stdin); //mandiamo il segnale
         printf("mandato messaggio:%s\n", buf1);
+
+        
+        if (strcmp(buf1,"\n")==0) { 
+            printf("stai attento!!!! (1 tentativo rimasto)\n");
+            //riproviamo come se niente fosse
+            fgets(buf1, buf1_size, stdin); //mandiamo il segnale
+        }
+
+        
         //togliamo il \n dopo i +++. se non lo facciamo il server legge male.
         if(buf1[strlen(buf1)-1]=='\n')buf1[strlen(buf1)-1]='\0';
 
