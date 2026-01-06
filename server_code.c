@@ -988,6 +988,15 @@ void CONSU_handler(int sock, int active_pos, int UDP_sock) {
     return;
 }
 
+void checkconnection(int pos,int activefd) {
+    if (server.array[pos]->isConnected==false) { 
+        printf("utente non connesso, impossibile mandare\n");
+        cleanup(activefd, NULL, NULL, NULL, NULL, false);
+        return;
+    }
+}
+
+
 //gestisce il cliente a seconda di quello che ha mandato. gli args dovranno includere almeno il sockfd per comunicare in tcp col cliente. probabilmente andranno anche inclusi i campi del chiamante compilati da accept() cosi da usarli in REGIS_handler() direi.
 void* TCP_message_handler(void* args) {
     struct package info=*((struct package*)args);
@@ -1023,22 +1032,27 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "FRIE?")==0 )
         {
+            checkconnection(info.pos, info.activefd); //controlliamo se l'utente e' connesso
             FRIEND_REQUEST_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "MESS?")==0)
         {
+            checkconnection(info.pos, info.activefd);
             MESSAGE_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "FLOO?")==0)
         {
+            checkconnection(info.pos, info.activefd);
             FLOOD_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "LIST?")==0)
         {
+            checkconnection(info.pos, info.activefd);
             LIST_handler(info.activefd);
         }
         else if(strcmp(buf1, "CONSU")==0)
         {
+            checkconnection(info.pos, info.activefd);
             CONSU_handler(info.activefd, active_pos, UDP_sock);
 
             //OKIRF e NOKRF penso debbano essere gestite a stretto contatto con CONSU. potremmo forse gestire questi 2 casi direttamente nel CONSU, obbligando l'utente a dire si o no ad una richiesta di amicizia, una volta che l'ha letta con CONSU. 
@@ -1048,11 +1062,11 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "OKIRF")==0)
         {
-            
+            //qua non si arriva
         }
         else if(strcmp(buf1, "NOKRF")==0)
         {
-            
+            //qua non si arriva
         }
         else if(strcmp(buf1, "IQUIT")==0)
         {
