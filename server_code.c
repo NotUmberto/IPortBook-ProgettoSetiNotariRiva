@@ -19,17 +19,18 @@ pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
 //l'idea è avere una funzione che dealloca la memoria può chiudere la connessione, può rilasciare il lock e può inviare gobye. l'ho fatta perchè è comune a moltissimi handler
 void cleanup(int fd,char* infoid, char* infoport, uint16_t* infopass, char* infomess ,bool release_lock)
 {
+    if(infoid!=NULL)free(infoid);
+    if(infoport!=NULL)free(infoport);
+    if(infopass!=NULL)free(infopass);
+    if(infomess!=NULL)free(infomess);
+    if(release_lock)pthread_mutex_unlock(&lock);
     if(fd>=0)
     {
         write(fd, "GOBYE+++", 8); 
         close(fd);
         pthread_exit(NULL);//facciamo terminare solo questo thread
     }
-    if(infoid!=NULL)free(infoid);
-    if(infoport!=NULL)free(infoport);
-    if(infopass!=NULL)free(infopass);
-    if(infomess!=NULL)free(infomess);
-    if(release_lock)pthread_mutex_unlock(&lock);
+
 }
 
 int my_pow(int b,int e) //non ho incluso math.h perchè il linker si arrabbiava. 
@@ -365,6 +366,12 @@ void REGIS_handler(int fd,int p, struct sockaddr_in caller) { //la sequenza di l
     Client newclient;
     newclient=malloc(sizeof(struct client));
 
+    //---------inizializzazione booleani------------
+
+    newclient->isConnected=false;
+    newclient->flooded=false;
+    newclient->friendNumber=0;
+
     //---------lettura id--------------
     char* infoid=read_id(fd);
     if(infoid==NULL)return;//non stampo niente perchè lo fa gia la read_...(fd) di turno
@@ -424,7 +431,7 @@ void REGIS_handler(int fd,int p, struct sockaddr_in caller) { //la sequenza di l
 
     //---------inserimento connection--------------
 
-    newclient->isConnected=true; //siamo sicuri di sta linea? 
+    //newclient->isConnected=true; //siamo sicuri di sta linea? no, ho sbagliato 
 
     //---------aggiunta alla struct degli utenti registrati--------------
     server.array[p]=newclient;
