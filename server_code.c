@@ -1032,27 +1032,27 @@ void* TCP_message_handler(void* args) {
         }
         else if(strcmp(buf1, "FRIE?")==0 )
         {
-            checkconnection(info.pos, info.activefd); //controlliamo se l'utente e' connesso
+            checkconnection(active_pos, info.activefd); //controlliamo se l'utente e' connesso
             FRIEND_REQUEST_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "MESS?")==0)
         {
-            checkconnection(info.pos, info.activefd);
+            checkconnection(active_pos, info.activefd);
             MESSAGE_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "FLOO?")==0)
         {
-            checkconnection(info.pos, info.activefd);
+            checkconnection(active_pos, info.activefd);
             FLOOD_handler(info.activefd, active_pos, UDP_sock);
         }
         else if(strcmp(buf1, "LIST?")==0)
         {
-            checkconnection(info.pos, info.activefd);
+            checkconnection(active_pos, info.activefd);
             LIST_handler(info.activefd);
         }
         else if(strcmp(buf1, "CONSU")==0)
         {
-            checkconnection(info.pos, info.activefd);
+            checkconnection(active_pos, info.activefd);
             CONSU_handler(info.activefd, active_pos, UDP_sock);
 
             //OKIRF e NOKRF penso debbano essere gestite a stretto contatto con CONSU. potremmo forse gestire questi 2 casi direttamente nel CONSU, obbligando l'utente a dire si o no ad una richiesta di amicizia, una volta che l'ha letta con CONSU. 
