@@ -148,8 +148,9 @@ void FLOOD_handler() {
     return;
 }
 
-void RLIST_handler(int sock)
+void RLIST_and_LINUM_handler(int sock)
 {
+  printf("RLIST_and_LINUM_handler():inizio\n");
   char* num=malloc(4*sizeof(char));
   char spazio='a';
   read(sock, &spazio,1);
@@ -158,8 +159,33 @@ void RLIST_handler(int sock)
     printf("RLIST_handler: comando non standard\n");
   }
   read(sock, num, 3);
+  num[3]='\0'; 
   printf("numero di utenti registrati nel server: %s\n", num);
+  
+  printf("ID degli utenti:\n");
+  
+  //codice per leggere LINUM
+  int buf1_size=6; //5 per il tipo di comando, 1 per \0
+  char* buf1=malloc((buf1_size+1)*sizeof(char));
+  buf1[0]='\0'; 
+  //
+  read_terminator(sock);//cosi esaurisco completamente RLIST
+  //gestisco LINUM
+  char* infoid;
+  for(int i=0;i<atoi(num);i++)
+  {
+    read(sock, buf1, buf1_size-1);
+    buf1[buf1_size]='\0';
+
+    infoid=read_id(sock);
+    if(i<atoi(num)-1)read_terminator(sock);//altrimenti la read_terminator alla fine di TCP_message_handler darebbe errore
+    printf("%s\n",infoid);
+
+  }
+  free(buf1);
+  free(infoid);
   free(num);
+
   return;
 }
 
@@ -310,10 +336,11 @@ void TCP_message_handler(int sockfd)
         }
         else if(strcmp(buf1, "RLIST")==0)
         {
-          RLIST_handler(sockfd);
+          RLIST_and_LINUM_handler(sockfd);
         }
         else if(strcmp(buf1, "LINUM")==0)
         {
+          //non arriverà mai fin qua. potremmo toglierlo
           LINUM_handler(sockfd);
         }
         else if(strcmp(buf1, "SSEM>")==0)
