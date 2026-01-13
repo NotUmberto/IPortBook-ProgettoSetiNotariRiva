@@ -30,7 +30,7 @@ int main() {
     }
 
     printf("Scegli la tua porta UDP:\n");
-    int udp_port=5555;
+    int udp_port=5555; //numero casuale per inizializzare la variabile
     
     scanf("%d", &udp_port);
     
@@ -41,21 +41,20 @@ int main() {
 
     
     pthread_t udp_thread;
-    pthread_create(&udp_thread,NULL,ListenNotify,&udp_port);
+    pthread_create(&udp_thread,NULL,ListenNotify,&udp_port); //per le notifiche UDP
 
     int buf1_size=maxTCPMessageLength+1;
     char* buf1=malloc(buf1_size*sizeof(char));
     while(1)
     {
         printf("puoi inviare un messaggio\n");
-        fgets(buf1, buf1_size, stdin); //mandiamo il segnale
+        fgets(buf1, buf1_size, stdin); //leggiamo il segnale
         printf("mandato messaggio:%s\n", buf1);
 
         
         if (strcmp(buf1,"\n")==0) { 
-            printf("stai attento!!!! (1 tentativo rimasto)\n");
-            //riproviamo come se niente fosse
-            fgets(buf1, buf1_size, stdin); //mandiamo il segnale
+            printf("stai attento!!!! (1 tentativo rimasto)\n"); //riproviamo
+            fgets(buf1, buf1_size, stdin); //leggiamo il segnale
         }
 
         
@@ -63,7 +62,7 @@ int main() {
         if(buf1[strlen(buf1)-1]=='\n')buf1[strlen(buf1)-1]='\0';
 
 
-        write(sockfd, buf1, strlen(buf1)); //SI MANDA QUANTO LETTO NON SEMPRE LA STESSA GRANDEZZA
+        write(sockfd, buf1, strlen(buf1)); //inviamo il segnale
 
         TCP_message_handler(sockfd); //gestisce cosa riceve   
     }

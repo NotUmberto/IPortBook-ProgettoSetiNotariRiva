@@ -235,7 +235,7 @@ void EIRF_handler(int sock) {
 
     //leggiamo ora se l'utente accetta o rifiuta
     char response[10]; //8 per OKIRF+++/NOKRF+++, 1 per \n, 1 per \0
-    fgets(response, 10, stdin);
+    fgets(response, 10, stdin); //perche' fgets include anche il \n
 
     response[strlen(response)-1]='\0'; //tolgo il \n
 
