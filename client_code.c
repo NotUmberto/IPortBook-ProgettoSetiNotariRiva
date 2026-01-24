@@ -291,7 +291,7 @@ void TCP_message_handler(int sockfd)
 
     
         printf("sto per leggere il messaggio\n");
-        int sizeread=read(sockfd, buf1, buf1_size-1);
+        read(sockfd, buf1, buf1_size-1);
         buf1[buf1_size-1]='\0';
         printf("messaggio ricevuto: %s\n", buf1);
 

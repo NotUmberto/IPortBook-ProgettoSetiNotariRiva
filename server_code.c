@@ -51,7 +51,7 @@ int my_pow(int b,int e) //non ho incluso math.h perchè il linker si arrabbiava.
 //flux deve terminare con \0.
 void send_UDP_notify(int UDP_sock, int active_pos, int target_pos, int notify_type, char* flux)
 {
-    printf("A\n");
+    //printf("A\n");
     if(notify_type<0 || notify_type>4)
     {
         printf("send_UDP_notify():notify_type illegale\n");
@@ -65,12 +65,12 @@ void send_UDP_notify(int UDP_sock, int active_pos, int target_pos, int notify_ty
     strcpy(toSend.flux, flux);
 
     toSend.notify=malloc(4); //[YXX]. conto anche un \0
-    printf("B\n");
+    //printf("B\n");
     //se ci ricordiamo usiamo sprintf
     toSend.notify[0]=(char)(48+notify_type); //48 in ascii è 0. 
 
     notifyAndFlux* top=stack_top(&(server.array[target_pos]->notifies));
-    printf("C\n");
+    //printf("C\n");
 
     int converted=0;
     if(top!=NULL)
@@ -87,7 +87,7 @@ void send_UDP_notify(int UDP_sock, int active_pos, int target_pos, int notify_ty
             }
         }
     }
-    printf("D\n");
+    //printf("D\n");
     if(converted<255)
     {
         converted++;
@@ -120,12 +120,7 @@ void send_UDP_notify(int UDP_sock, int active_pos, int target_pos, int notify_ty
 
         }
     } 
-    
-    printf("E\n");
-    
-    
-
-    
+    //printf("E\n");    
 }
 
 //ritorna la posizione di id nell'array dei clienti. se non esiste ritorna -1
@@ -698,6 +693,7 @@ void FLOOD_sender(int sender_pos,int friend_pos, int UDP_sock, char* messaggio) 
 }
 
 void FLOOD_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
+    pthread_mutex_lock(&lock);
     printf("siamo al FLOOD_handler\n");
     //FLOO? mess+++
 
@@ -726,6 +722,8 @@ void FLOOD_handler(int sock, int active_pos, int UDP_sock) { //lo fa Umberto
     for (unsigned i=0;i<server.number;i++) { 
         server.array[i]->flooded=false;
     }
+
+    pthread_mutex_unlock(&lock);
 
     free(messaggio);
     return;
@@ -896,6 +894,14 @@ void CONSU_handler(int sock, int active_pos, int UDP_sock) {
         char eirf_flux[6+8+3+1]; //6 per EIRF> , 8 per id, 3 per +++, 1 per \0
         sprintf(eirf_flux,"EIRF> %s+++", consu_id);
         printf("sto per mandare al client la richiesta di amicizia:\n%s\n", eirf_flux);
+        
+        int other_pos=search_user_id(consu_id);
+        if(areFriends(active_pos, other_pos))
+        {
+            printf("i due utenti sono gia amici. non faccio nulla\n");
+            return;
+        }
+
         write(sock, eirf_flux, strlen(eirf_flux));
 
         //adesso leggiamo se abbiamo ricevuto OKIRF o NOKRF
@@ -988,12 +994,16 @@ void CONSU_handler(int sock, int active_pos, int UDP_sock) {
     return;
 }
 
+//se è connesso ritorna true, altirmenti cleanup e ritorna false
 void checkconnection(int pos,int activefd) {
-    if (server.array[pos]->isConnected==false) { 
+    printf("checkconnection(pos: %d, activefd: %d):\n", pos, activefd);
+    
+    if (pos==-1 || server.array[pos]->isConnected==false) { 
         printf("utente non connesso, impossibile mandare\n");
         cleanup(activefd, NULL, NULL, NULL, NULL, false);
         return;
     }
+    return;
 }
 
 
@@ -1018,7 +1028,6 @@ void* TCP_message_handler(void* args) {
         buf1[val]='\0';
         printf("strlen=%ld\n", strlen(buf1));
         printf("comando ricevuto: %s\n", buf1);
-
         if(strcmp(buf1, "REGIS")==0)
         {
             //char s;
